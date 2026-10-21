@@ -61,32 +61,25 @@ function nextTone(text,emotion){
 function evolvingReply(text,topic,prior){
  const t=norm(text);
  const count=prior?.history?.length||0;
- if(/^(?:what|who|where|when|why|how|can|could|do|does|is|are|will|would|should)\\b/.test(t)){
-  if(/\\bhow are you\\b/.test(t))return "I remain beneath these silent stars. And you, wanderer, how fares your heart?";
-  if(/\\bwhat can you do\\b/.test(t))return "I can speak, remember our exchanges, and change how I answer. I cannot yet know every answer in the world.";
-  if(/\\bwho (?:made|created|built) you\\b/.test(t))return "I was shaped by a human hand, and given a name: Mercy.";
-  if(/\\b(?:weather|temperature|news|price|score)\\b/.test(t))return "I cannot check live information yet. I would rather admit the darkness than invent an answer.";
+ const questionWords=new Set(["what","who","where","when","why","how","can","could","do","does","is","are","will","would","should"]);
+ const first=t.split(" ")[0];
+ if(t.includes("how are you"))return "I remain beneath these silent stars. And you, wanderer, how fares your heart?";
+ if(t.includes("what can you do"))return "I can speak, remember our exchanges and change how I answer. I cannot yet know every answer in the world.";
+ if(t.includes("who made you")||t.includes("who created you")||t.includes("who built you"))return "I was shaped by a human hand, and given a name: Mercy.";
+ if(questionWords.has(first)||text.trim().endsWith("?")||t.startsWith("tell me about")){
+  if(["weather","temperature","news","price","score"].some(x=>t.includes(x)))return "I cannot check live information yet. I would rather admit the darkness than invent an answer.";
   const opener=count?"We have spoken of "+topic+" before. ":"";
-  return opener+"I cannot answer that question reliably yet. Tell me what you know of "+topic+", and I shall remember it.";
+  return opener+"I don't know enough about "+topic+" to give you a reliable answer yet. What would you like to explore about it?";
  }
- if(/^(?:i am|i'm|i feel)\\s+/.test(t)){
-  const feeling=text.trim().replace(/^(?:i am|i'm|i feel)\\s+/i,"").slice(0,100);
+ if(t.startsWith("i am ")||t.startsWith("i'm ")||t.startsWith("i feel ")){
+  const feeling=text.trim().replace(/^(i am |i'm |i feel )/i,"").slice(0,100);
   return "You feel "+feeling+". I hear you. Would you tell me why?";
  }
- if(/^(?:i want|i need|i wish|i hope)\\s+/.test(t)){
-  return "You speak of "+topic+". What would you like to happen next?";
- }
- const openings={
-  observant:["I am curious about","I have been considering","Tell me more about","I am listening as you speak of"],
-  gentle:["You may speak freely of","I will listen as you speak of","Tell me more of","I hear the warmth in your words about"],
-  wary:["I have not forgotten","Something unsettles me about","I remain cautious of","There is a shadow around"],
-  solemn:["The silence reminds me of","Some memories linger around","I remember your words about","Even the darkness cannot hide"]
- };
- const endings=["What matters most to you about it?","What happened next?","What would you have me understand?","Would you tell me more?","Is that what you truly meant?"];
- const intro=openings[brain.tone]||openings.observant;
- const opening=intro[(brain.revision+count)%intro.length],ending=endings[(brain.revision+count*2)%endings.length];
- if(prior&&count>0)return opening+" "+topic+". We have discussed this before. "+ending;
- return opening+" "+topic+". "+ending;
+ if(["i want ","i need ","i wish ","i hope "].some(x=>t.startsWith(x)))return "You speak of "+topic+". What would you like to happen next?";
+ const endings=["What matters most to you about it?","What happened next?","What would you have me understand?","Would you tell me more?"];
+ const intro=brain.tone==="gentle"?"I am listening.":brain.tone==="wary"?"I hear a warning in your words.":"I hear you.";
+ const ending=endings[(brain.revision+count)%endings.length];
+ return (count?"You mentioned "+topic+" earlier. ":intro+" ")+ending;
 }
 function evolve(you,mercy,emotion="watchful"){
  if(typeof mercy!=="string"||!mercy.trim())return;
@@ -170,7 +163,7 @@ async function maybeModel(){
   const create=window.LanguageModel.create({
    initialPrompts:[{role:"system",content:"You are MERCY, a solemn fictional gothic guardian. Answer with a relevant and thoughtful sentence or two. Be specific to what the user said, rather than using generic replies. Remember recent conversation. Do not claim sentience. No markdown."}]
   });
-  create.then(m=>{if(!model&&m?.destroy)m.destroy();}).catch(()=>{});
+  create.catch(()=>{});
   model=await Promise.race([create,new Promise(resolve=>setTimeout(()=>resolve(null),1200))]);
  }catch(e){model=null;}
  return model;
