@@ -126,7 +126,7 @@ async function loadBrain(){
  loadButton.hidden=true;
  const ok=await window.MercyModes.load(setModelStatus);
  if(ok){
-  setModelStatus("Local AI ready · original replies enabled");
+  setModelStatus(window.MercyModes.status().state);
   status.textContent="Mercy is listening. Type or speak.";
  }else{
   loadButton.hidden=false;
