@@ -1,21 +1,44 @@
-# MERCY — Voice V1
+# MERCY
 
-MERCY is a gothic animatronic character project. **The first version is voice-only**: she uses a laptop microphone to recognize English speech and a laptop speaker to respond.
+MERCY is a gothic animatronic character prototype. The current experience is a **static browser voice/chat app** hosted at https://luckyy1711.github.io/mercy/.
 
-## Features
-- Offline speech recognition with Vosk (requires a downloaded English model)
-- Offline synthesized voice with espeak-ng
-- Built-in basic responses to greetings, name, date/time and goodbyes
-- Optional open-ended conversation via a separately installed local Ollama model
-- Unit tests for response logic
+The web prototype and the original Arch Linux Python microphone prototype are **separate**. The web app does not use the Python files.
 
-**Not yet included:** camera, face recognition, eye movements, motor control, ESP32 firmware or human-like consciousness.
+## Browser prototype
 
-## Run later on your Arch Linux laptop
+- Type a message or speak through a browser that supports Web Speech Recognition.
+- Replies come from **SmolLM2-135M-Instruct**, a tiny generative model running locally in the browser through Transformers.js / ONNX Runtime Web.
+- The browser uses its own speech-synthesis voice to speak the generated text (original voice settings are fixed at 0.75× speed and 0.45 pitch).
+- The model starts automatically on page load. It is hosted in this GitHub repository under `models/`; the large ONNX file is split into chunks, which `sw.js` streams back as one file. Model data still **must transfer to each visitor's browser on first use**.
+- Conversation memory is stored in the visitor's browser using localStorage, not in GitHub or a server. **Clear Mercy's memory** clears this saved conversation.
+- Mercy has a fictional identity and a conversation log, **not real or verified consciousness**.
+- First access requires internet to fetch site, model, inference runtime and WASM assets. Offline operation depends on successful caching of all required files and on installed browser speech voices. Browser speech recognition might still require network access.
 
-No action required on your current computer. The code is stored here until you're ready.
+### Browser limitations
 
-On the Arch Linux laptop, run:
+A 135M-parameter model is very small: it can hallucinate, repeat itself, misunderstand questions, or run slowly on older CPUs. Some devices cannot initialize the ONNX runtime or fit the model in memory. The site shows errors and provides a **Retry AI startup** button when loading fails. There is no API key or cloud AI endpoint. Internet connectivity itself does **not** enable web searching.
+
+### Architecture
+
+```
+index.html (UI + Web Speech)
+    → mercy-modes.js (local AI inference + browser memory)
+    → Transformers.js and ONNX Runtime Web
+    → hosted SmolLM2 model chunks (GitHub Pages)
+sw.js streams the chunked ONNX model and caches the app shell
+```
+
+### Updating hosted model weights
+
+`.github/workflows/vendor-mercy-model.yml` is an optional GitHub Actions job that fetches model assets from Hugging Face, splits the ONNX model into GitHub-compatible parts and commits them under `models/`. It runs on edits to that workflow or when manually dispatched, not on every page view. The pipeline and service worker must agree on the model ID and ONNX filename.
+
+All external model and library licenses remain in force. See `models/onnx-community/SmolLM2-135M-Instruct-ONNX/ATTRIBUTION.txt`.
+
+## Legacy Python prototype (optional)
+
+`main.py`, `mercy/brain.py` and `mercy/voice.py` implement the earlier laptop-only Vosk / espeak-ng voice experiment, **not** the browser AI. Its responses are scripted unless a separately configured local Ollama instance is running. It is retained as a starting point for future robotics work.
+
+On Arch Linux:
 
 ```bash
 sudo pacman -S --needed python python-pip portaudio espeak-ng unzip git curl
@@ -30,29 +53,19 @@ unzip /tmp/mercy-vosk.zip -d models
 python main.py
 ```
 
-Say: **hello mercy**, **who are you**, **can you hear me**, **what time is it**, or **goodbye mercy**.
-
-The base speech system runs offline after setup. Without a local Ollama model Mercy follows only her built-in responses, not general conversation.
-
-To use an already installed, running Ollama model, set `MERCY_OLLAMA_MODEL` to its installed model name before launching Mercy.
+This older program optionally uses `MERCY_OLLAMA_MODEL` and `MERCY_OLLAMA_URL` environment variables to contact a **locally running** Ollama model. No such Ollama configuration is required for the website.
 
 ## Tests
 
 ```bash
 python -m unittest discover -s tests -v
+node --check mercy-modes.js
+node --check sw.js
+node --test tests/browser.test.cjs
 ```
 
-## Architecture
+The repository's CI workflow runs these tests and validates that the model manifest agrees with its committed chunks. A real browser smoke test is still required for speech synthesis, service worker interception and local ONNX inference.
 
-Laptop microphone → Vosk → `mercy/brain.py` → espeak-ng → laptop speaker.
+## Future robotics work
 
-In a later phase, a laptop or other powerful computer will handle voice/AI and send movement instructions to an ESP32. A regular ESP32-WROOM-32 cannot run this whole voice/AI stack by itself.
-
-## Roadmap
-
-1. Voice-only prototype (current)
-2. More expressive, whisper-like speech and personality
-3. Camera/eyes, separate module
-4. ESP32-connected movement, separate firmware
-
-Audio is processed locally by default. Tell people when an active microphone is in use.
+Camera, animatronic movement, eye controls and ESP32 integration are not implemented. A laptop would handle the compute-intensive AI and communicate with microcontrollers for movement. Tell people when a microphone is listening.
