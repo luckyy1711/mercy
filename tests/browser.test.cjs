@@ -91,3 +91,30 @@ test("service worker reassembles model chunks as one ONNX response",async()=>{
  const bytes=new Uint8Array(await response.arrayBuffer());
  assert.deepEqual([...bytes],[1,2,3,4]);
 });
+
+test("personal name questions respect the remembered fact and 6-7 word request",async()=>{
+ const saved=new Map();
+ const make=()=>{
+  const context={
+   document:{baseURI:"https://example.org/mercy/"},
+   window:{}, URL, navigator:{}, MessageChannel,setTimeout,clearTimeout,
+   localStorage:{getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v)}
+  };
+  vm.runInNewContext(read("mercy-modes.js"),context);
+  return context.window.MercyModes;
+ };
+ let mercy=make();
+ const unknown=await mercy.answer("answer this in 6-7 words what is my name");
+ assert.equal(unknown.text,"I don't know your name just yet.");
+ assert.equal(unknown.text.trim().split(/\\s+/).length,7);
+ // Revisit the page: browser localStorage should retain the person's name.
+ saved.set("mercy-identity-memory-v1",JSON.stringify({
+  version:1,identity:"Mercy",name:"Alex",observations:[],turns:1,
+  conversation:[{role:"user",content:"My name is Alex"},{role:"assistant",content:"Greetings, Alex."}],
+  lastReflection:"Introduced as Alex"
+ }));
+ mercy=make();
+ const known=await mercy.answer("answer this in 6-7 words what is my name");
+ assert.equal(known.text,"You told me your name is Alex.");
+ assert.equal(known.text.trim().split(/\\s+/).length,7);
+});
