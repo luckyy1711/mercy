@@ -16,22 +16,14 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .log{border:1px solid #46394b;background:#0b0a0ed0;text-align:left;border-radius:12px;padding:16px;min-height:110px;max-height:270px;overflow:auto;margin-top:20px;overflow-wrap:anywhere}
 .log p{margin:6px 0}.me{color:#c4b9ce}.mercy{color:#e4b8d0}
 footer{font-size:12px;color:#9b8e9c;margin-top:18px}
-.panel{margin:18px auto 8px;display:grid;gap:12px;text-align:left;max-width:420px;font-size:13px;color:#dccbd7}
-.panel label{display:flex;justify-content:space-between;gap:12px}
-.panel input{width:100%;accent-color:#e5b6d2}
 .chat-form{display:flex;gap:9px;max-width:560px;margin:18px auto 4px}
 .chat-form input{flex:1;min-width:0;padding:14px 13px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:12px;font:inherit}
 .chat-form button{margin:0;border-radius:12px}
-.panel textarea{width:100%;min-height:76px;padding:12px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:9px;resize:vertical;font:inherit}
-.mode{color:#e5bad3;text-align:center;font-size:11px;letter-spacing:.18em;border-bottom:1px solid #564254;padding-bottom:12px}
-.brain-panel{margin-top:16px;padding:15px;border:1px solid #57455b;border-radius:12px;text-align:left;font-size:13px;color:#cbb5c5}
-.brain-panel summary{cursor:pointer;font-weight:bold;color:#ead8e4}
-.brain-panel p{line-height:1.45}
-#brainRules{white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto}
-
 .ai-panel{margin:16px auto;max-width:560px;border:1px solid #57455b;border-radius:12px;padding:14px;color:#cbb5c5;font-size:13px}
 .ai-panel p{line-height:1.45}
-#chatInput:disabled{opacity:.6}
+.chat-form input:disabled,.chat-form button:disabled{opacity:.55;cursor:wait}
+.ai-panel summary{cursor:pointer;color:#ead8e4;font-weight:700}
+.log .system{color:#bba7b5}
 </style></head>
 <body><main>
 <small>VOICE PROTOTYPE</small>
@@ -80,7 +72,12 @@ function loadVoices(){
  ||voices.find(v=>v.lang==="en-GB")||voices[0]||null;
 }
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
-function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
+function add(who,message){
+ const p=document.createElement("p");
+ p.className=who==="YOU"?"me":who==="MERCY"?"mercy":"system";
+ p.textContent=who+": "+message;
+ log.prepend(p);
+}
 function refreshMind(){
  const mind=window.MercyModes?.status();
  if(!mind)return;
@@ -100,8 +97,15 @@ function cancelSpeech(){
  speaking=false;
 }
 function sync(){
- start.disabled=active||!SR;stop.disabled=!active&&!speaking;
- if(!working)status.textContent=!SR?"Text chat is available. Microphone recognition requires a compatible browser.":speaking?"Mercy is speaking…":active?"Listening…":"Type or speak to Mercy.";
+ start.disabled=active||working||!SR;
+ stop.disabled=!active&&!speaking&&!working;
+ chatInput.disabled=working;
+ chatForm.querySelector("button").disabled=working;
+ if(working)return;
+ status.textContent=speaking?"Mercy is speaking…":
+   active?"Listening…":
+   !SR?"Type to Mercy. Microphone recognition is unavailable in this browser.":
+   "Type or speak to Mercy.";
 }
 function listen(){
  if(!active||speaking||working||!recognition)return;
@@ -127,7 +131,7 @@ async function loadBrain(){
  const ok=await window.MercyModes.load(setModelStatus);
  if(ok){
   setModelStatus(window.MercyModes.status().state);
-  status.textContent="Mercy is listening. Type or speak.";
+  if(!working)sync();
  }else{
   loadButton.hidden=false;
   status.textContent="Local model could not initialize. Try Retry AI startup.";
@@ -136,23 +140,38 @@ async function loadBrain(){
 }
 loadButton.onclick=()=>{void loadBrain();};
 async function respond(message){
+ if(working)return;
  const seq=++replySequence;
  add("YOU",message);
  working=true;
  try{recognition?.abort()}catch(e){}
  status.textContent="Mercy is thinking…";
- const result=await window.MercyModes.answer(message,setModelStatus);
- if(seq!==replySequence)return;
- working=false;
- if(result?.text){
-  say(result.text);
-  refreshMind();
- }else{
-  const error=result?.error||"Mercy's local AI did not produce a reply.";
-  status.textContent=error;
-  add("SYSTEM",error);
- }
  sync();
+ try{
+  const result=await window.MercyModes.answer(message,setModelStatus);
+  if(seq!==replySequence)return;
+  if(result?.cancelled)return;
+  if(result?.text){
+   say(result.text);
+   refreshMind();
+  }else{
+   const error=result?.error||"Mercy's local AI did not produce a reply.";
+   add("SYSTEM",error);
+   status.textContent=error;
+  }
+ }catch(err){
+  if(seq===replySequence){
+   const error="Model error: "+String(err?.message||err).slice(0,130);
+   add("SYSTEM",error);
+   status.textContent=error;
+  }
+ }finally{
+  if(seq===replySequence){
+   working=false;
+   sync();
+   if(active&&!speaking)listen();
+  }
+ }
 }
 chatForm.addEventListener("submit",e=>{
  e.preventDefault();const text=chatInput.value.trim();if(!text)return;
@@ -160,13 +179,18 @@ chatForm.addEventListener("submit",e=>{
 });
 document.querySelector("#testVoice").onclick=()=>{active=false;replySequence++;working=false;say(testMonologue,false);};
 start.onclick=()=>{
+ if(working)return;
  if(!SR){status.textContent="Microphone recognition unavailable; type a message instead.";return;}
  cancelSpeech();active=true;sync();listen();
 };
-stop.onclick=()=>{replySequence++;working=false;active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync();};
+stop.onclick=()=>{
+ replySequence++;working=false;active=false;
+ try{recognition?.abort()}catch(e){}
+ cancelSpeech();sync();
+};
 if(SR){
  recognition=new SR();recognition.lang="en-US";recognition.continuous=false;recognition.interimResults=false;
- recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(phrase)void respond(phrase);};
+ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(phrase&&!working)void respond(phrase);};
  recognition.onend=()=>{if(active&&!speaking&&!working)listen();else sync();};
  recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;sync();status.textContent="Microphone unavailable or permission denied.";}};
 }
