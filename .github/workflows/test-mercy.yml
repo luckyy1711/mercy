@@ -30,6 +30,8 @@ jobs:
         run: |
           node --check mercy-modes.js
           node --check sw.js
-          node --test tests/browser.test.cjs
+          node --check autonomy.js
+          node --check presence.js
+          node --test tests/*.test.cjs
       - name: Legacy Python voice logic tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
