@@ -1,6 +1,6 @@
 "use strict";
-const SHELL="mercy-shell-v5";
-const ASSETS=["./","./index.html","./mercy-modes.js"];
+const SHELL="mercy-shell-v6";
+const ASSETS=["./","./index.html","./mercy-modes.js","./presence.css","./presence.js","./autonomy.js"];
 const MODEL_END="/onnx-community/SmolLM2-135M-Instruct-ONNX/onnx/model_int8.onnx";
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(SHELL).then(cache=>cache.addAll(ASSETS))
@@ -8,7 +8,7 @@ self.addEventListener("install",event=>{
 });
 self.addEventListener("message",event=>{
  if(event.data?.type==="MERCY_WORKER_VERSION"){
-  event.ports?.[0]?.postMessage({version:5});
+  event.ports?.[0]?.postMessage({version:6});
  }
 });
 self.addEventListener("activate",event=>{
