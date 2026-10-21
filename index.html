@@ -154,7 +154,10 @@ function setPresence(){
  window.MercyPresence?.setState(document.hidden?"asleep":
    speaking?"speaking":working?"thinking":active?"listening":"idle");
 }
-document.addEventListener("visibilitychange",setPresence);
+document.addEventListener("visibilitychange",()=>{
+ if(document.hidden&&spontaneousSpeaking)cancelSpeech();
+ setPresence();
+});
 function cancelSpeech(){
  speechRun++;
  if(window.speechSynthesis)try{speechSynthesis.cancel()}catch(e){}
