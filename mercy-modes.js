@@ -91,11 +91,17 @@ async function wikiLookup(query,signal){
  return {title,extract,url:p.fullurl||"https://en.wikipedia.org/wiki/"+encodeURIComponent(title.replace(/ /g,"_"))};
 }
 function sarcasticFacts(found){
- const sentences=found.extract.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[];
- const fact=sentences.slice(0,2).join(" ").trim().slice(0,360);
- const openers=["Ah yes. A question worthy of disturbing my eternal silence.","How fortunate for you that I still remember how to read.","The archives speak. Try not to look too impressed.","Even the dust-covered archives have an answer to that."];
- const opener=openers[(found.title.length+history.length)%openers.length];
- return opener+" "+fact;
+ const excerpt=strip(found.extract).replace(/\s*\([^)]{0,90}pronunciation[^)]*\)/ig,"");
+ const sentences=excerpt.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[];
+ const fact=sentences.slice(0,2).join(" ").trim().slice(0,365);
+ // Put the answer first, not a repetitive theatrical introduction.
+ const asides=[
+  "There. A little light in the darkness.",
+  "You could have asked the ravens, but they're terrible conversationalists.",
+  "Consider yourself enlightened. Briefly.",
+  "A remarkably sensible question, for once."
+ ];
+ return fact+(fact.endsWith(".")?"":" .")+" "+asides[(history.length/2+found.title.length)%asides.length|0];
 }
 async function answer(text,{signal,progress}={}){
  lastSource=null;
