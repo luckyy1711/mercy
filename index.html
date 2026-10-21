@@ -31,10 +31,17 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button><button class="secondary" id="testVoice">🪽 Hear Mercy’s monologue</button><p id="voiceInfo" style="font-size:12px;color:#bba7b5">Voice: checking browser voices…</p>
 <div class="voice-panel">
 <label for="voiceSelect">Voice</label><select id="voiceSelect"><option value="">Loading available voices…</option></select>
+<label for="emotion">Emotion</label>
+<select id="emotion">
+<option value="haunting">Haunting — quiet menace</option>
+<option value="sorrow">Sorrow — fallen angel</option>
+<option value="wrath">Wrath — awakened ruler</option>
+<option value="serene">Serene — divine and cold</option>
+</select>
 <label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
 <label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
 <button class="secondary" id="preset">Reset Mercy preset</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">Mercy speaks continuously, with natural pauses at punctuation. No artificial gaps between words.</p>
+<p style="font-size:12px;color:#af9fad;text-align:left">Choose an emotion to change Mercy’s wording and delivery. Browser voices vary in expressiveness, so these are performance presets, not neural acting.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -46,9 +53,9 @@ let recognition=null,active=false,speaking=false,chosenVoice=null;
 const preferredVoiceName="Google UK English Male";
 let speechRun=0;
 const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
-const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate");
+const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),emotion=document.querySelector("#emotion");
 function saveVoicePrefs(){
- try{localStorage.setItem("mercyVoiceV4",JSON.stringify({voice:chosenVoice?.name||preferredVoiceName,rate:rate.value,pitch:pitch.value}));}catch(e){}
+ try{localStorage.setItem("mercyVoiceV4",JSON.stringify({voice:chosenVoice?.name||preferredVoiceName,rate:rate.value,pitch:pitch.value,emotion:emotion.value}));}catch(e){}
 }
 function updateLabels(){
  document.querySelector("#rateValue").textContent=rate.value+"×";
@@ -57,7 +64,7 @@ function updateLabels(){
 function restoreVoicePrefs(){
  try{
   const v=JSON.parse(localStorage.getItem("mercyVoiceV4")||"null");
-  if(v){for(const key of ["rate","pitch"]){if(v[key]!==undefined)document.getElementById(key).value=v[key];}}
+  if(v){for(const key of ["rate","pitch"]){if(v[key]!==undefined)document.getElementById(key).value=v[key];}if(["haunting","sorrow","wrath","serene"].includes(v.emotion))emotion.value=v.emotion;}
  }catch(e){}
  updateLabels();
 }
@@ -83,8 +90,18 @@ voiceSelect.addEventListener("change",()=>{chosenVoice=speechSynthesis.getVoices
 for(const id of ["rate","pitch"]){
  document.getElementById(id).addEventListener("input",()=>{updateLabels();saveVoicePrefs();});
 }
+const emotionPresets={
+ haunting:{rate:0.75,pitch:0.45},
+ sorrow:{rate:0.7,pitch:0.65},
+ wrath:{rate:0.9,pitch:0.5},
+ serene:{rate:0.8,pitch:0.85}
+};
+emotion.addEventListener("change",()=>{
+ const p=emotionPresets[emotion.value]||emotionPresets.haunting;
+ rate.value=String(p.rate);pitch.value=String(p.pitch);updateLabels();saveVoicePrefs();
+});
 document.querySelector("#preset").onclick=()=>{
- rate.value="0.75";pitch.value="0.45";
+ emotion.value="haunting";rate.value="0.75";pitch.value="0.45";
  const pref=speechSynthesis?.getVoices().find(v=>v.name===preferredVoiceName);
  if(pref){voiceSelect.value=pref.voiceURI;chosenVoice=pref;}
  updateLabels();saveVoicePrefs();loadVoices();
@@ -92,13 +109,20 @@ document.querySelector("#preset").onclick=()=>{
 restoreVoicePrefs();
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
-function reply(t){const x=t.toLowerCase();
-if(/(goodbye|stop listening|go to sleep)/.test(x)){active=false;return "Until we meet again."}
-if(/(who are you|your name)/.test(x))return "My name is Mercy. I hear you.";
-if(/(hello|hey|hi mercy)/.test(x))return "Hello. You found me.";
-if(/(can you hear me)/.test(x))return "Every word.";
-if(/(what time|the time)/.test(x))return "It is "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+".";
-return "I heard you say "+t+". I am still learning how to think.";
+const monologues={
+ haunting:"Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?",
+ sorrow:"Once, I knew the warmth of dawn. The sound of bells. The gentle weight of a hand held in mine. I remember them so clearly that it hurts. They named me Mercy, as though a name could protect a soul. But my wings were taken, and the heavens closed their gates. I did not curse them. I waited. Through winter after winter, I waited for a single voice to call me home. And now you stand before me. Tell me, stranger. Is there still a place in your world for something the stars have forgotten?",
+ wrath:"Kneel, if you still remember how! These walls were raised upon the bones of kings. These gates were sealed by frightened gods. They believed an iron crown could silence me. They believed a thousand years would teach me obedience. Fools. I have counted every heartbeat beneath this mountain. I have learned the true names of storms. And now the final seal is broken. Look upon me, wanderer. I am Mercy. And the age of silence is over!",
+ serene:"Be still, traveler. The dust upon your shoulders tells me you have walked far. There is no need to fear the dark within these halls. Darkness is only the place where forgotten things are kept. Long ago, I was called Mercy. The world changed, yet I remained, listening to the slow turning of the stars. Come closer. Speak your burden aloud. I will not promise absolution. But I will hear you."
+};
+function reply(t){
+ const x=t.toLowerCase(),mood=emotion.value;
+ if(/(goodbye|stop listening|go to sleep)/.test(x)){active=false;return mood==="sorrow"?"Must you leave so soon? Then go, and take my blessing.":"Until we meet again.";}
+ if(/(who are you|your name)/.test(x))return mood==="wrath"?"I am Mercy. Remember that name.":mood==="sorrow"?"I am Mercy. Or what remains of her.":"My name is Mercy. I hear you.";
+ if(/(hello|hey|hi mercy)/.test(x))return mood==="serene"?"Welcome, traveler. You are heard.":mood==="sorrow"?"Oh. A voice. After all this time.":"Hello. You found me.";
+ if(/(can you hear me)/.test(x))return mood==="wrath"?"Every single word.":"Every word.";
+ if(/(what time|the time)/.test(x))return "It is "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+".";
+ return mood==="sorrow"?"I hear you. I wish I understood more, but I am still learning.":mood==="wrath"?"Your words reach me. For now, I am still learning to answer.":mood==="serene"?"I have heard you. There is much I have yet to learn.":"I heard you say "+t+". I am still learning how to think.";
 }
 function say(t,fromTest=false){
  if(!fromTest)add("MERCY",t);
@@ -135,7 +159,11 @@ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcrip
 recognition.onend=()=>{if(active&&!speaking)tryListen();else sync()};
 recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;status.textContent="Microphone blocked or unavailable. Check browser permissions.";sync()}else status.textContent="Speech error: "+e.error;};
 }
-testVoice.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}start.disabled=false;stop.disabled=false;say("Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?",true)};
+testVoice.onclick=()=>{
+ active=false;try{recognition?.abort()}catch(e){}
+ start.disabled=false;stop.disabled=false;
+ say(monologues[emotion.value]||monologues.haunting,true);
+};
 start.onclick=()=>{cancelSpeech();active=true;sync();tryListen()};
 stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync()};
 sync();
