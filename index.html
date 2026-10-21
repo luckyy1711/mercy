@@ -216,9 +216,38 @@ async function loadBrain(){
  return ok;
 }
 loadButton.onclick=()=>{void loadBrain();};
+async function generateSpontaneous(){
+ // The scheduler has already confirmed explicit opt-in and a visible tab.
+ if(working||speaking||document.hidden||!window.MercyModes?.status().ready)return false;
+ const seq=++replySequence;
+ autoBusy=true;working=true;lastIssue="";
+ try{recognition?.abort()}catch(e){}
+ status.textContent="Mercy is thinking of something to say…";
+ sync();
+ try{
+  const result=await window.MercyModes.initiate(setModelStatus);
+  if(seq!==replySequence||!autonomy.info().enabled||document.hidden||result?.cancelled)return false;
+  if(!result?.text){
+   if(result?.error)setModelStatus(result.error);
+   return false;
+  }
+  say(result.text,true,true);
+  refreshMind();
+  return true;
+ }catch(error){
+  if(seq===replySequence)setModelStatus("Autonomous speech unavailable: "+String(error?.message||error).slice(0,120));
+  return false;
+ }finally{
+  if(seq===replySequence){
+   autoBusy=false;working=false;sync();
+   if(active&&!speaking)listen();
+  }
+ }
+}
 async function respond(message){
  if(working)return;
  const seq=++replySequence;
+ autonomy.activity();
  lastIssue="";
  add("YOU",message);
  working=true;
@@ -257,21 +286,29 @@ chatForm.addEventListener("submit",e=>{
  e.preventDefault();const text=chatInput.value.trim();if(!text)return;
  chatInput.value="";active=false;void respond(text);
 });
-document.querySelector("#testVoice").onclick=()=>{active=false;replySequence++;window.MercyModes?.cancelPending();working=false;lastIssue="";say(testMonologue,false);};
+chatInput.addEventListener("input",()=>autonomy.activity());
+document.querySelector("#testVoice").onclick=()=>{
+ autonomy.activity();active=false;replySequence++;
+ window.MercyModes?.cancelPending();
+ working=false;autoBusy=false;lastIssue="";
+ say(testMonologue,false);
+};
 start.onclick=()=>{
  if(working)return;
+ autonomy.activity();
  lastIssue="";
  if(!SR){status.textContent="Microphone recognition unavailable; type a message instead.";return;}
  cancelSpeech();active=true;sync();listen();
 };
 stop.onclick=()=>{
- replySequence++;window.MercyModes?.cancelPending();working=false;active=false;lastIssue="";
+ autonomy.disable();
+ replySequence++;window.MercyModes?.cancelPending();working=false;autoBusy=false;active=false;lastIssue="";
  try{recognition?.abort()}catch(e){}
  cancelSpeech();sync();
 };
 if(SR){
  recognition=new SR();recognition.lang="en-US";recognition.continuous=false;recognition.interimResults=false;
- recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(phrase&&!working)void respond(phrase);};
+ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(phrase&&!working){autonomy.activity();void respond(phrase);}};
  recognition.onend=()=>{if(active&&!speaking&&!working)listen();else sync();};
  recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;sync();status.textContent="Microphone unavailable or permission denied.";}};
 }
