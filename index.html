@@ -37,6 +37,12 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <button class="secondary" id="stop" disabled>Stop</button>
 <button class="secondary" id="testVoice">Hear Mercy's monologue</button>
 <button class="secondary" id="laugh">Mercy's amused reaction</button>
+<div class="brain-panel" style="margin:14px auto;max-width:560px">
+ <p id="modeStatus" role="status">Checking connectivity…</p>
+ <button class="secondary" id="loadLocal" type="button">Download tiny offline brain (~180 MB)</button>
+ <p style="font-size:12px">When online, Mercy can research public encyclopedia topics and give a sarcastic spoken answer. Offline, Mercy uses the tiny local model once installed, or his basic reply brain.</p>
+ <div id="sourceArea" style="display:none;font-size:12px">Source: <a id="sourceLink" href="#" target="_blank" rel="noopener noreferrer"></a></div>
+</div>
 <form id="chatForm" class="chat-form">
 <input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Type to Mercy…" aria-label="Message Mercy">
 <button type="submit">Send</button>
@@ -48,9 +54,10 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <div id="brainRules"></div>
 <button class="secondary" id="resetBrain" type="button">Clear learned replies and memory</button>
 </details>
-<footer>Type or speak to Mercy. His reply brain can learn and revise responses locally, without changing the voice. Some compatible browsers may support an on-device language model; otherwise replies use local reasoning.</footer>
+<footer>Type or speak to Mercy. When online, research queries are sent to Wikipedia. Offline text generation requires a one-time tiny model download; otherwise Mercy uses local scripted reasoning. Speech uses existing browser voices.</footer>
 </main>
 <script src="reply-brain.js"></script>
+<script src="mercy-modes.js"></script>
 <script>
 "use strict";
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -97,14 +104,53 @@ function refreshBrain(){
  }
 }
 let responseSequence=0;
+const modeStatus=document.querySelector("#modeStatus");
+const loadLocal=document.querySelector("#loadLocal"),sourceArea=document.querySelector("#sourceArea"),sourceLink=document.querySelector("#sourceLink");
+function refreshMode(){
+ const state=window.MercyModes?.status();
+ if(!state){modeStatus.textContent="Basic reply brain active";return;}
+ modeStatus.textContent=(state.online?"Wi-Fi available · web knowledge mode":"Offline · local mode")+" · "+state.localState;
+ if(state.ready)loadLocal.hidden=true;
+}
+window.addEventListener("online",refreshMode);
+window.addEventListener("offline",refreshMode);
+loadLocal.onclick=async()=>{
+ loadLocal.disabled=true;
+ await window.MercyModes?.installLocal((message)=>{modeStatus.textContent=message;});
+ loadLocal.disabled=false;refreshMode();
+};
+refreshMode();
+let querySequence=0;
 async function respond(phrase){
  const sequence=++responseSequence;
+ const query=++querySequence;
  add("YOU",phrase);
+ sourceArea.style.display="none";
  if(!window.MercyBrain){say("My reply brain is unavailable. Please refresh the page.");return;}
  status.textContent="Mercy is thinking…";
  try{
-  const result=await window.MercyBrain.think(phrase);
-  if(sequence!==responseSequence)return;
+  let result=null;
+  const userRule=/^(?:when i say|if i say|my name is|call me|forget|reset|clear|show your reply rules|list your reply rules)/i.test(phrase.trim());
+  const controller=new AbortController();
+  const watchdog=setTimeout(()=>controller.abort(),6500);
+  try{
+   if(!userRule&&window.MercyModes){
+    const onlineResult=await window.MercyModes.answer(phrase,{
+     signal:controller.signal,
+     progress:(progress)=>{if(sequence===responseSequence)status.textContent=progress;}
+    });
+    if(onlineResult){
+     result={text:onlineResult.text,emotion:"amused"};
+     if(onlineResult.source&&sequence===responseSequence){
+      sourceLink.textContent=onlineResult.source.title;
+      sourceLink.href=onlineResult.source.url;
+      sourceArea.style.display="block";
+     }
+    }
+   }
+  }finally{clearTimeout(watchdog);}
+  if(!result)result=await window.MercyBrain.think(phrase);
+  if(sequence!==responseSequence||query!==querySequence)return;
   if(result?.emotion)setExpression(result.emotion);
   if(result?.stop)active=false;
   if(result?.action==="laugh"){
@@ -115,7 +161,7 @@ async function respond(phrase){
    window.MercyBrain.remember(phrase,words,result?.emotion||"watchful");
    say(words);
   }
-  refreshBrain();
+  refreshBrain();refreshMode();
  }catch(e){
   if(sequence!==responseSequence)return;
   setExpression("watchful");
