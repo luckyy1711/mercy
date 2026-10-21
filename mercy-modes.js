@@ -161,6 +161,7 @@ function memoryAnswer(question){
 }
 async function generateAnswer(user,report){
  const epoch=memoryGeneration;
+ noteUser(user);
  const grounded=memoryAnswer(user);
  if(grounded){
   if(epoch!==memoryGeneration)return {cancelled:true};
