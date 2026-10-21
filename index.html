@@ -59,7 +59,7 @@ const modelStatus=document.querySelector("#modelStatus"),loadButton=document.que
 const mindState=document.querySelector("#mindState"),clearMind=document.querySelector("#clearMind");
 const VOICE_RATE=0.75, VOICE_PITCH=0.45,preferredVoiceName="Google UK English Male";
 const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
-let recognition=null,active=false,speaking=false,chosenVoice=null,speechRun=0,replySequence=0,working=false;
+let recognition=null,active=false,speaking=false,chosenVoice=null,speechRun=0,replySequence=0,working=false,lastIssue="";
 try{
  // One-time removal of the old pattern database, including "hello darkness" rules.
  localStorage.removeItem("mercyReplyBrainV1");
@@ -88,7 +88,7 @@ function refreshMind(){
 function setModelStatus(message){modelStatus.textContent=message;}
 clearMind.onclick=()=>{
  if(!confirm("Clear Mercy's remembered conversations and identity observations from this browser?"))return;
- window.MercyModes?.reset();refreshMind();
+ window.MercyModes?.reset();lastIssue="";refreshMind();
 };
 refreshMind();
 function cancelSpeech(){
@@ -102,6 +102,7 @@ function sync(){
  chatInput.disabled=working;
  chatForm.querySelector("button").disabled=working;
  if(working)return;
+ if(lastIssue){status.textContent=lastIssue;return;}
  status.textContent=speaking?"Mercy is speaking…":
    active?"Listening…":
    !SR?"Type to Mercy. Microphone recognition is unavailable in this browser.":
@@ -130,11 +131,13 @@ async function loadBrain(){
  loadButton.hidden=true;
  const ok=await window.MercyModes.load(setModelStatus);
  if(ok){
+  lastIssue="";
   setModelStatus(window.MercyModes.status().state);
   if(!working)sync();
  }else{
   loadButton.hidden=false;
-  status.textContent="Local model could not initialize. Try Retry AI startup.";
+  lastIssue="Local model could not initialize. Try Retry AI startup.";
+  status.textContent=lastIssue;
  }
  return ok;
 }
@@ -142,6 +145,7 @@ loadButton.onclick=()=>{void loadBrain();};
 async function respond(message){
  if(working)return;
  const seq=++replySequence;
+ lastIssue="";
  add("YOU",message);
  working=true;
  try{recognition?.abort()}catch(e){}
@@ -157,12 +161,14 @@ async function respond(message){
   }else{
    const error=result?.error||"Mercy's local AI did not produce a reply.";
    add("SYSTEM",error);
+   lastIssue=error;
    status.textContent=error;
   }
  }catch(err){
   if(seq===replySequence){
    const error="Model error: "+String(err?.message||err).slice(0,130);
    add("SYSTEM",error);
+   lastIssue=error;
    status.textContent=error;
   }
  }finally{
@@ -177,14 +183,15 @@ chatForm.addEventListener("submit",e=>{
  e.preventDefault();const text=chatInput.value.trim();if(!text)return;
  chatInput.value="";active=false;void respond(text);
 });
-document.querySelector("#testVoice").onclick=()=>{active=false;replySequence++;working=false;say(testMonologue,false);};
+document.querySelector("#testVoice").onclick=()=>{active=false;replySequence++;window.MercyModes?.cancelPending();working=false;lastIssue="";say(testMonologue,false);};
 start.onclick=()=>{
  if(working)return;
+ lastIssue="";
  if(!SR){status.textContent="Microphone recognition unavailable; type a message instead.";return;}
  cancelSpeech();active=true;sync();listen();
 };
 stop.onclick=()=>{
- replySequence++;working=false;active=false;
+ replySequence++;window.MercyModes?.cancelPending();working=false;active=false;lastIssue="";
  try{recognition?.abort()}catch(e){}
  cancelSpeech();sync();
 };
