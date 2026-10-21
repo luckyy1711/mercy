@@ -23,6 +23,7 @@
     const now = options.now ?? (() => Date.now());
     const emit = options.onEvent ?? (() => {});
     const minInterval = Math.max(100, options.minIntervalMs ?? 180);
+    const ackTimeoutMs = Math.max(200, Math.min(5000, options.ackTimeoutMs ?? 1200));
     let position = {yaw: 0, pitch: 0, jaw: 0, eyeX: 0, eyeY: 0};
     let armed = false, emergency = false, busy = false, lastCommandAt = -Infinity;
     let generation = 0;
@@ -48,6 +49,10 @@
       armed = false;
       generation++;
       log("disarmed");
+      if (hardwareEnabled) {
+        try { Promise.resolve(transport.send({type: "stop"})).catch(() => {}); }
+        catch (_) {}
+      }
     }
     function resetEmergency() {
       // An operator must deliberately reset; never auto-reset after timeout.
@@ -86,8 +91,21 @@
       busy = true;
       try {
         if (hardwareEnabled) {
-          const acknowledged = await transport.send({type: "move", axis,
-            degrees: target, timeoutMs: 1200});
+          // A broken adapter must not hold the controller busy forever.
+          // Hardware still requires its own independent safety watchdog.
+          let timeoutHandle;
+          let acknowledged;
+          try {
+            acknowledged = await Promise.race([
+              Promise.resolve().then(() => transport.send({type: "move", axis,
+                degrees: target, timeoutMs: ackTimeoutMs})),
+              new Promise((_, reject) => {
+                timeoutHandle = setTimeout(() => reject(new Error("ack timeout")), ackTimeoutMs);
+              })
+            ]);
+          } finally {
+            if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+          }
           if (acknowledged?.ok !== true) {
             log("rejected", {axis, reason: "hardware did not acknowledge"});
             return {ok: false, reason: "hardware did not acknowledge"};
