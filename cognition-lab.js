@@ -47,7 +47,7 @@
   $("cogExport").addEventListener("click", () => {
     const json = JSON.stringify({
       exportedAt: new Date().toISOString(), schema: 2,
-      cognition: cognition.snapshot()
+      cognition: cognition.snapshot(), experiments: experiments.list()
     }, null, 2);
     const url = URL.createObjectURL(new Blob([json], {type: "application/json"}));
     const link = document.createElement("a");
