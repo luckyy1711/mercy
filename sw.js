@@ -1,6 +1,6 @@
 "use strict";
-const SHELL="mercy-shell-v1";
-const ASSETS=["./","./index.html","./reply-brain.js","./mercy-modes.js"];
+const SHELL="mercy-shell-v2";
+const ASSETS=["./","./index.html","./mercy-modes.js"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(SHELL).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()).catch(()=>{}));
 });
