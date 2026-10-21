@@ -80,7 +80,7 @@ function loadVoices(){
  voiceInfo.textContent="Selected voice: "+chosenVoice.name;
 }
 voiceSelect.addEventListener("change",()=>{chosenVoice=speechSynthesis.getVoices().find(v=>v.voiceURI===voiceSelect.value)||null;voiceInfo.textContent=chosenVoice?"Selected voice: "+chosenVoice.name:"Using default voice";saveVoicePrefs();});
-for(const id of ["rate","pitch","pause"]){
+for(const id of ["rate","pitch"]){
  document.getElementById(id).addEventListener("input",()=>{updateLabels();saveVoicePrefs();});
 }
 document.querySelector("#preset").onclick=()=>{
