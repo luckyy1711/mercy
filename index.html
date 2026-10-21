@@ -33,9 +33,8 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <label for="voiceSelect">Voice</label><select id="voiceSelect"><option value="">Loading available voices…</option></select>
 <label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
 <label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
-<label for="pause">Pause after each word <output id="pauseValue">60 ms</output></label><input id="pause" type="range" min="0" max="300" step="10" value="60">
 <button class="secondary" id="preset">Reset Mercy preset</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">Single voice only. Mercy now pauses after every word for an unnatural, ritual-like delivery. The default pause is now subtle; each word still uses a separate speech utterance, so some browsers may add their own delay.</p>
+<p style="font-size:12px;color:#af9fad;text-align:left">Mercy speaks continuously, with natural pauses at punctuation. No artificial gaps between words.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -45,27 +44,25 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
 let recognition=null,active=false,speaking=false,chosenVoice=null;
 const preferredVoiceName="Google UK English Male";
-let speechRun=0,pauseTimer=null;
+let speechRun=0;
 const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
-const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),pause=document.querySelector("#pause");
+const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate");
 function saveVoicePrefs(){
- try{localStorage.setItem("mercyVoiceV4",JSON.stringify({voice:chosenVoice?.name||preferredVoiceName,rate:rate.value,pitch:pitch.value,pause:pause.value}));}catch(e){}
+ try{localStorage.setItem("mercyVoiceV4",JSON.stringify({voice:chosenVoice?.name||preferredVoiceName,rate:rate.value,pitch:pitch.value}));}catch(e){}
 }
 function updateLabels(){
  document.querySelector("#rateValue").textContent=rate.value+"×";
  document.querySelector("#pitchValue").textContent=pitch.value;
- document.querySelector("#pauseValue").textContent=pause.value+" ms";
 }
 function restoreVoicePrefs(){
  try{
   const v=JSON.parse(localStorage.getItem("mercyVoiceV4")||"null");
-  if(v){for(const key of ["rate","pitch","pause"]){if(v[key]!==undefined)document.getElementById(key).value=v[key];}}
+  if(v){for(const key of ["rate","pitch"]){if(v[key]!==undefined)document.getElementById(key).value=v[key];}}
  }catch(e){}
  updateLabels();
 }
 function cancelSpeech(){
  speechRun++;
- if(pauseTimer!==null){clearTimeout(pauseTimer);pauseTimer=null;}
  try{speechSynthesis.cancel()}catch(e){}
  speaking=false;
 }
@@ -87,7 +84,7 @@ for(const id of ["rate","pitch","pause"]){
  document.getElementById(id).addEventListener("input",()=>{updateLabels();saveVoicePrefs();});
 }
 document.querySelector("#preset").onclick=()=>{
- rate.value="0.75";pitch.value="0.45";pause.value="60";
+ rate.value="0.75";pitch.value="0.45";
  const pref=speechSynthesis?.getVoices().find(v=>v.name===preferredVoiceName);
  if(pref){voiceSelect.value=pref.voiceURI;chosenVoice=pref;}
  updateLabels();saveVoicePrefs();loadVoices();
@@ -110,39 +107,25 @@ function say(t,fromTest=false){
  cancelSpeech();
  const thisRun=++speechRun;
  speaking=true;
- // Disable recognition throughout the entire phrase, including silences.
  if(recognition)try{recognition.abort()}catch(e){}
- const words=t.trim().split(/\s+/).filter(Boolean);
- let index=0;
- function finish(){
+ // A SINGLE utterance allows the TTS engine to connect words naturally.
+ const utterance=new SpeechSynthesisUtterance(t);
+ if(chosenVoice)utterance.voice=chosenVoice;
+ utterance.lang=chosenVoice?.lang||"en-GB";
+ utterance.volume=1;
+ utterance.rate=Number(rate.value);
+ utterance.pitch=Number(pitch.value);
+ utterance.onstart=()=>{if(thisRun===speechRun)status.textContent="Mercy is speaking…";};
+ utterance.onend=()=>{
   if(thisRun!==speechRun)return;
-  pauseTimer=null;speaking=false;
-  if(active)tryListen();else sync();
- }
- function nextWord(){
-  if(thisRun!==speechRun)return;
-  if(index>=words.length){finish();return;}
-  const word=words[index++];
-  const utterance=new SpeechSynthesisUtterance(word);
-  if(chosenVoice)utterance.voice=chosenVoice;
-  utterance.lang=chosenVoice?.lang||"en-US";
-  utterance.volume=1;utterance.rate=Number(rate.value);utterance.pitch=Number(pitch.value);
-  utterance.onstart=()=>{if(thisRun===speechRun)status.textContent="MERCY speaks: "+word+" ("+index+"/"+words.length+")";};
-  utterance.onend=()=>{
-   if(thisRun!==speechRun)return;
-   pauseTimer=setTimeout(nextWord,Number(pause.value)+(word.match(/[.!?]$/)?180:0));
-  };
-  utterance.onerror=e=>{
-   if(thisRun!==speechRun)return;
-   if(e.error==="canceled"||e.error==="interrupted")return;
-   status.textContent="Voice error: "+e.error;
-   // Continue when one word fails, without getting stuck in the speaking state.
-   pauseTimer=setTimeout(nextWord,Number(pause.value));
-  };
-  try{speechSynthesis.speak(utterance)}
-  catch(e){status.textContent="Voice error: "+e.message;finish();}
- }
- nextWord();
+  speaking=false;if(active)tryListen();else sync();
+ };
+ utterance.onerror=e=>{
+  if(thisRun!==speechRun||e.error==="canceled"||e.error==="interrupted")return;
+  speaking=false;status.textContent="Voice error: "+e.error;
+ };
+ try{speechSynthesis.speak(utterance);}
+ catch(e){speaking=false;status.textContent="Voice error: "+e.message;}
 }
 function sync(){start.disabled=active||!SR;stop.disabled=!active;status.textContent=!SR?"Speech recognition not supported. Try Chrome or Edge.":active?(speaking?"Mercy is speaking…":"Listening…"):"Microphone stopped.";}
 function tryListen(){if(!active||speaking||!recognition)return;try{recognition.start();status.textContent="Listening…"}catch(e){status.textContent="Microphone starting…";}}
