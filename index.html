@@ -36,7 +36,7 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <button id="start">Start listening</button>
 <button class="secondary" id="stop" disabled>Stop</button>
 <button class="secondary" id="testVoice">Hear Mercy's monologue</button>
-<button class="secondary" id="laugh">Hear Mercy laugh</button>
+<button class="secondary" id="laugh">Mercy's amused reaction</button>
 <form id="chatForm" class="chat-form">
 <input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Type to Mercy…" aria-label="Message Mercy">
 <button type="submit">Send</button>
@@ -71,10 +71,8 @@ function setExpression(name){expression=expressions[name]?name:"watchful";}
 function playLaugh(){
  active=false;
  setExpression("amused");
- // Use Mercy's actual speech voice instead of artificial oscillator beeps.
- // It is a stylized spoken chuckle; realistic acted laughter needs recorded/generative audio.
- add("MERCY","[a low, amused chuckle] Oh, how delightfully unfortunate.");
- say("Mmm... heh heh heh... hahahaha... Oh, how delightfully unfortunate.",true);
+ // Browser TTS reads laugh syllables aloud rather than performing a human laugh.
+ say("Oh, how delightfully unfortunate. You really are amusing, wanderer.");
 }
 const preferredVoiceName="Google UK English Male";
 const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
@@ -98,12 +96,15 @@ function refreshBrain(){
   const p=document.createElement("p");p.textContent=rule.trigger+" → "+rule.response;rules.appendChild(p);
  }
 }
+let responseSequence=0;
 async function respond(phrase){
+ const sequence=++responseSequence;
  add("YOU",phrase);
  if(!window.MercyBrain){say("My reply brain is unavailable. Please refresh the page.");return;}
  status.textContent="Mercy is thinking…";
  try{
   const result=await window.MercyBrain.think(phrase);
+  if(sequence!==responseSequence)return;
   if(result?.emotion)setExpression(result.emotion);
   if(result?.stop)active=false;
   if(result?.action==="laugh"){
@@ -115,7 +116,11 @@ async function respond(phrase){
    say(words);
   }
   refreshBrain();
- }catch(e){setExpression("watchful");say("My thoughts are tangled. Say that again.");}
+ }catch(e){
+  if(sequence!==responseSequence)return;
+  setExpression("watchful");
+  say("I heard you, but something interrupted my thoughts. Try again.");
+ }
 }
 document.querySelector("#resetBrain").onclick=()=>{
  if(!window.confirm("Clear Mercy's learned reply rules and conversation memory on this browser? Voice settings will stay the same."))return;
