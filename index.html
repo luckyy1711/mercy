@@ -24,7 +24,7 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <h1>MERCY</h1>
 <p>A voice in the dark. Speak, and she will answer.</p>
 <p id="status" role="status">Press Start to activate the microphone.</p>
-<button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button>
+<button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button><button class="secondary" id="testVoice">🔊 Test voice</button><p id="voiceInfo" style="font-size:12px;color:#bba7b5">Voice: checking browser voices…</p>
 <div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -32,7 +32,10 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 "use strict";
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
-let recognition=null,active=false,speaking=false;
+let recognition=null,active=false,speaking=false,chosenVoice=null;
+const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
+function loadVoices(){if(!window.speechSynthesis){voiceInfo.textContent="Speech synthesis is unavailable in this browser.";return;}const voices=speechSynthesis.getVoices();chosenVoice=voices.find(v=>v.lang.toLowerCase().startsWith("en")&&v.localService)||voices.find(v=>v.lang.toLowerCase().startsWith("en"))||voices[0]||null;voiceInfo.textContent=chosenVoice?"Voice: "+chosenVoice.name+" ("+chosenVoice.lang+")":"No voice loaded yet. Try clicking Test voice.";}
+if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
 function reply(t){const x=t.toLowerCase();
 if(/(goodbye|stop listening|go to sleep)/.test(x)){active=false;return "Until we meet again."}
@@ -42,10 +45,25 @@ if(/(can you hear me)/.test(x))return "Every word.";
 if(/(what time|the time)/.test(x))return "It is "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+".";
 return "I heard you say "+t+". I am still learning how to think.";
 }
-function say(t){add("MERCY",t);speaking=true;
-if(!window.speechSynthesis){speaking=false;status.textContent="Speech output unsupported.";return;}
-const u=new SpeechSynthesisUtterance(t);u.rate=.83;u.pitch=.72;u.onend=()=>{speaking=false;if(active)tryListen();else sync()};u.onerror=()=>{speaking=false;if(active)tryListen();else sync()};
-speechSynthesis.cancel();speechSynthesis.speak(u);
+function say(t,fromTest=false){
+if(!fromTest)add("MERCY",t);
+if(!window.speechSynthesis){status.textContent="Speech output unsupported by this browser.";return;}
+try{
+  loadVoices();
+  speaking=true;
+  // Stop microphone recognition so the synthesizer doesn't hear itself.
+  if(recognition)try{recognition.abort();}catch(e){}
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(t);
+  if(chosenVoice)u.voice=chosenVoice;
+  u.lang=chosenVoice?.lang||"en-US";
+  u.volume=1;u.rate=0.9;u.pitch=0.85;
+  u.onstart=()=>{status.textContent="Speaking through: "+(u.voice?.name||"default voice");};
+  u.onend=()=>{speaking=false;if(active)tryListen();else sync();};
+  u.onerror=e=>{speaking=false;status.textContent="Voice error: "+e.error+". Try another browser or check system audio.";};
+  speechSynthesis.speak(u);
+  status.textContent="Voice request sent to browser…";
+}catch(e){speaking=false;status.textContent="Speech error: "+e.message;}
 }
 function sync(){start.disabled=active||!SR;stop.disabled=!active;status.textContent=!SR?"Speech recognition not supported. Try Chrome or Edge.":active?(speaking?"Mercy is speaking…":"Listening…"):"Microphone stopped.";}
 function tryListen(){if(!active||speaking||!recognition)return;try{recognition.start();status.textContent="Listening…"}catch(e){status.textContent="Microphone starting…";}}
@@ -55,6 +73,7 @@ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcrip
 recognition.onend=()=>{if(active&&!speaking)tryListen();else sync()};
 recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;status.textContent="Microphone blocked or unavailable. Check browser permissions.";sync()}else status.textContent="Speech error: "+e.error;};
 }
+testVoice.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}start.disabled=false;stop.disabled=true;say("Hello. I am Mercy. Can you hear me?",true)};
 start.onclick=()=>{active=true;sync();tryListen()};
 stop.onclick=()=>{active=false;try{recognition?.stop()}catch(e){}speechSynthesis?.cancel();speaking=false;sync()};
 sync();
