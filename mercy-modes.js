@@ -65,7 +65,7 @@ function remember(user,reply){
  save();
 }
 function status(){return {ready:!!generator,loading:!!loading,state,source,identity:memory.identity,turns:memory.turns,initiativeCount:memory.initiativeCount,name:memory.name,reflection:memory.lastReflection,cognitiveFacts:window.MercyBrain?.cognition.stats().knownFacts||0};}
-function reset(){memoryGeneration++;memory=initial();save();window.MercyBrain?.cognition.clear();window.MercyBrain?.experiments.clear();}
+function reset(){memoryGeneration++;memory=initial();save();window.MercyBrain?.cognition.clear();window.MercyBrain?.experiments?.clear?.();}
 function cancelPending(){memoryGeneration++;}
 function clean(value){
  let result=String(value||"").trim();
