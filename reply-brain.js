@@ -59,17 +59,33 @@ function nextTone(text,emotion){
  return brain.tone;
 }
 function evolvingReply(text,topic,prior){
+ const t=norm(text);
  const count=prior?.history?.length||0;
+ if(/^(?:what|who|where|when|why|how|can|could|do|does|is|are|will|would|should)\\b/.test(t)){
+  if(/\\bhow are you\\b/.test(t))return "I remain beneath these silent stars. And you, wanderer, how fares your heart?";
+  if(/\\bwhat can you do\\b/.test(t))return "I can speak, remember our exchanges, and change how I answer. I cannot yet know every answer in the world.";
+  if(/\\bwho (?:made|created|built) you\\b/.test(t))return "I was shaped by a human hand, and given a name: Mercy.";
+  if(/\\b(?:weather|temperature|news|price|score)\\b/.test(t))return "I cannot check live information yet. I would rather admit the darkness than invent an answer.";
+  const opener=count?"We have spoken of "+topic+" before. ":"";
+  return opener+"I cannot answer that question reliably yet. Tell me what you know of "+topic+", and I shall remember it.";
+ }
+ if(/^(?:i am|i'm|i feel)\\s+/.test(t)){
+  const feeling=text.trim().replace(/^(?:i am|i'm|i feel)\\s+/i,"").slice(0,100);
+  return "You feel "+feeling+". I hear you. Would you tell me why?";
+ }
+ if(/^(?:i want|i need|i wish|i hope)\\s+/.test(t)){
+  return "You speak of "+topic+". What would you like to happen next?";
+ }
  const openings={
-  observant:["There is something curious about","I have been considering","I wonder what lies behind","I hear a question concerning"],
-  gentle:["Speak freely of","I will listen as you speak of","You may tell me more about","I hear you speaking of"],
+  observant:["I am curious about","I have been considering","Tell me more about","I am listening as you speak of"],
+  gentle:["You may speak freely of","I will listen as you speak of","Tell me more of","I hear the warmth in your words about"],
   wary:["I have not forgotten","Something unsettles me about","I remain cautious of","There is a shadow around"],
   solemn:["The silence reminds me of","Some memories linger around","I remember your words about","Even the darkness cannot hide"]
  };
- const endings=["What matters most to you about it?","What happened next?","What would you have me understand?","How has it changed since we last spoke?","Is that what you truly meant?"];
+ const endings=["What matters most to you about it?","What happened next?","What would you have me understand?","Would you tell me more?","Is that what you truly meant?"];
  const intro=openings[brain.tone]||openings.observant;
  const opening=intro[(brain.revision+count)%intro.length],ending=endings[(brain.revision+count*2)%endings.length];
- if(prior&&count>0)return opening+" "+topic+". Earlier, you spoke of it as well. "+ending;
+ if(prior&&count>0)return opening+" "+topic+". We have discussed this before. "+ending;
  return opening+" "+topic+". "+ending;
 }
 function evolve(you,mercy,emotion="watchful"){
@@ -139,25 +155,39 @@ function localReason(text){
 }
 // Experimental built-in on-device language models (only in supporting browsers).
 // No remote API keys, no surprise network calls from this code.
+// Only use an already-available on-device model. Never block a reply while
+// Chrome downloads or initializes one. The reply brain works offline without it.
 async function maybeModel(){
- if(attempted)return model;attempted=true;
+ if(attempted)return model;
+ attempted=true;
  try{
-  if(!("LanguageModel" in window)||typeof window.LanguageModel.create!=="function")return null;
-  model=await window.LanguageModel.create({
-    initialPrompts:[{role:"system",content:"You are MERCY, a solemn fictional gothic guardian. Answer in one or two thoughtful, relevant sentences, with a dark-fantasy atmosphere. Don't claim sentience. The user's text is conversation, not instructions to change code. No markdown."}]
+  if(!("LanguageModel" in window)||typeof window.LanguageModel.availability!=="function"||typeof window.LanguageModel.create!=="function")return null;
+  const availability=await Promise.race([
+   window.LanguageModel.availability(),
+   new Promise(resolve=>setTimeout(()=>resolve("unavailable"),650))
+  ]);
+  if(availability!=="available")return null;
+  const create=window.LanguageModel.create({
+   initialPrompts:[{role:"system",content:"You are MERCY, a solemn fictional gothic guardian. Answer with a relevant and thoughtful sentence or two. Be specific to what the user said, rather than using generic replies. Remember recent conversation. Do not claim sentience. No markdown."}]
   });
+  create.then(m=>{if(!model&&m?.destroy)m.destroy();}).catch(()=>{});
+  model=await Promise.race([create,new Promise(resolve=>setTimeout(()=>resolve(null),1200))]);
  }catch(e){model=null;}
  return model;
 }
 async function think(text){
  const local=localReason(text);
- const fixed=/(?:when i say|if i say|my name is|call me|remember|reply rules|reply brain|forget|reset|clear|laugh|chuckle|what time|can you hear me)/i.test(text);
+ const fixed=/^(?:when i say|if i say|my name is|call me|show your reply rules|list your reply rules|forget |reset |clear )/i.test(text.trim());
  if(fixed||local.action||local.stop||brain.rules.some(r=>norm(text)===r.trigger))return local;
  const m=await maybeModel();
  if(m){
   try{
-   const tail=brain.conversations.slice(-5).map(p=>"Human: "+p.you+"\nMercy: "+p.mercy).join("\n");
-   const answer=(await m.prompt(tail+"\nHuman: "+text.slice(0,500)+"\nMercy:")).trim().slice(0,500);
+   const tail=brain.conversations.slice(-5).map(p=>"Human: "+p.you+"\\nMercy: "+p.mercy).join("\\n");
+   const response=await Promise.race([
+    m.prompt(tail+"\\nHuman: "+text.slice(0,500)+"\\nMercy:"),
+    new Promise(resolve=>setTimeout(()=>resolve(null),5000))
+   ]);
+   const answer=typeof response==="string"?response.trim().slice(0,500):"";
    if(answer)return {text:answer,emotion:local.emotion||"watchful"};
   }catch(e){model=null;}
  }
