@@ -176,12 +176,22 @@ function memoryAnswer(question){
  }
  return {text:answer};
 }
-function contextFor(user){
+function isStandaloneGreeting(user){
  const incoming=String(user).trim().toLowerCase().replace(/[!?.\s]+$/,"");
- // Short greetings are new turns, not follow-ups to old questions.
- // This selects context; it never generates or substitutes scripted dialogue.
- const standalone=/^(?:hi|hello|hey|hey there|yo|sup|good morning|good evening|good afternoon|hiya|howdy|greetings|what's up|whats up)$/i.test(incoming);
- return standalone?[]:memory.cleanDialogue.slice(-4);
+ return /^(?:hi|hello|hey|hey there|yo|sup|good morning|good evening|good afternoon|hiya|howdy|greetings|what's up|whats up)$/i.test(incoming);
+}
+function contextFor(user){
+ // Retain conversational follow-ups, but a simple hello must not re-trigger
+ // an unrelated question that the previous tiny model answered badly.
+ return isStandaloneGreeting(user)?[]:memory.cleanDialogue.slice(-4);
+}
+function greetingOnTopic(reply){
+ // This only checks the model's answer; it never fabricates a scripted reply.
+ const text=String(reply||"");
+ if(!text.trim())return false;
+ if(text.split(/\s+/).length>25)return false;
+ if(/(?:what is my name|future questions|your answer will|based on your preferences|feel free to ask|keep it in mind for|following questions)/i.test(text))return false;
+ return true;
 }
 async function generateAnswer(user,report){
  const epoch=memoryGeneration;
@@ -197,23 +207,34 @@ async function generateAnswer(user,report){
  }
  if(epoch!==memoryGeneration)return {cancelled:true};
  state="Writing a new answer…";report?.(state);
- const self="You are Mercy, a witty gothic AI companion. Directly respond to ONLY the current user message. For a simple greeting, greet them naturally in one short sentence. Do not bring up past questions unless asked. For questions, give a relevant, brief answer; say when you do not know. Avoid generic advice, summaries, imagined tasks, and repetition. You are not conscious. No role labels, markdown, or stage directions.";
+ const greet=isStandaloneGreeting(user);
+ const self=greet
+  ?"You are Mercy, a gothic AI character. The visitor just greeted you. Greet them back warmly in one short natural sentence (under fifteen words), with a hint of dry wit. No explanations, old questions, or generic advice."
+  :"You are Mercy, a witty gothic AI companion. Answer only the latest user message. Give relevant concise answers; use earlier conversation only when needed for context. Do not echo previous questions or offer generic advice. If unknown, say so. Be dryly witty when fitting. You are not conscious. No markdown, role labels, or stage directions.";
  const continuity=memory.name?"The user said their name is "+memory.name+". ":"";
  try{
-  const messages=[
-   {role:"system",content:self+" "+continuity},
-   ...contextFor(user),
-   {role:"user",content:String(user).slice(0,500)}
-  ];
-  const output=await generator(messages,{
-   max_new_tokens:68,do_sample:false,
-   repetition_penalty:1.1,return_full_text:false
-  });
+  let reply="";
+  for(let attempt=0;attempt<(greet?2:1);attempt++){
+   const instructions=attempt===0?self:"You are Mercy. The user said hello. Say a brief greeting back, nothing else. One sentence.";
+   const messages=[
+    {role:"system",content:instructions+" "+continuity},
+    ...contextFor(user),
+    {role:"user",content:String(user).slice(0,500)}
+   ];
+   const output=await generator(messages,{
+    max_new_tokens:greet?36:72,do_sample:false,
+    repetition_penalty:1.1,return_full_text:false
+   });
+   const generated=output?.[0]?.generated_text;
+   const raw=Array.isArray(generated)?generated.at(-1)?.content:generated;
+   reply=clean(raw);
+   if(!greet||greetingOnTopic(reply))break;
+  }
   if(epoch!==memoryGeneration)return {cancelled:true};
-  const generated=output?.[0]?.generated_text;
-  const raw=Array.isArray(generated)?generated.at(-1)?.content:generated;
-  const reply=clean(raw);
-  if(!reply){state="No reply generated";report?.(state);return {error:"The model returned an empty reply."};}
+  if(!reply||(greet&&!greetingOnTopic(reply))){
+   state="The AI did not stay on topic";report?.(state);
+   return {error:"The AI did not produce a relevant reply. Please try again."};
+  }
   remember(user,reply);
   state="AI ready · "+source;report?.(state);
   return {text:reply};
