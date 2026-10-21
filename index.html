@@ -33,11 +33,9 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <label for="voiceSelect">Voice</label><select id="voiceSelect"><option value="">Loading available voices…</option></select>
 <label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
 <label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
-<label for="echo">Haunted echo <output id="echoValue">35%</output></label><input id="echo" type="range" min="0" max="100" value="35">
-<label for="distortion">Corrupted harmonics <output id="distortionValue">20%</output></label><input id="distortion" type="range" min="0" max="100" value="20">
-<label for="angel">Second spectral voice <output id="angelValue">30%</output></label><input id="angel" type="range" min="0" max="100" value="30">
+<label for="pause">Pause after each word <output id="pauseValue">350 ms</output></label><input id="pause" type="range" min="100" max="900" step="50" value="350">
 <button class="secondary" id="preset">Reset Mercy preset</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">The second layer is a synthesized, wordless vocal choir with shifting formants, not a second person speaking the same lines. True layered spoken voices require generated audio files or a dedicated voice engine.</p>
+<p style="font-size:12px;color:#af9fad;text-align:left">Single voice only. Mercy now pauses after every word for an unnatural, ritual-like delivery. Longer pauses make the monologue last much longer.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -47,74 +45,36 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
 let recognition=null,active=false,speaking=false,chosenVoice=null;
 const preferredVoiceName="Google UK English Male";
-let audioContext=null,fxNodes=[];
-function saveVoicePrefs(){try{localStorage.setItem("mercyVoiceV2",JSON.stringify({voice:chosenVoice?.name||preferredVoiceName,rate:rate.value,pitch:pitch.value,echo:echo.value,distortion:distortion.value,angel:angel.value}));}catch(e){}}
+let speechRun=0,pauseTimer=null;
+const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
+const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),pause=document.querySelector("#pause");
+function saveVoicePrefs(){
+ try{localStorage.setItem("mercyVoiceV3",JSON.stringify({voice:chosenVoice?.name||preferredVoiceName,rate:rate.value,pitch:pitch.value,pause:pause.value}));}catch(e){}
+}
+function updateLabels(){
+ document.querySelector("#rateValue").textContent=rate.value+"×";
+ document.querySelector("#pitchValue").textContent=pitch.value;
+ document.querySelector("#pauseValue").textContent=pause.value+" ms";
+}
 function restoreVoicePrefs(){
- try{const v=JSON.parse(localStorage.getItem("mercyVoiceV2")||"null");if(!v)return;
- for(const key of ["rate","pitch","echo","distortion","angel"]){if(v[key]!==undefined)document.getElementById(key).value=v[key];}
+ try{
+  const v=JSON.parse(localStorage.getItem("mercyVoiceV3")||"null");
+  if(v){for(const key of ["rate","pitch","pause"]){if(v[key]!==undefined)document.getElementById(key).value=v[key];}}
  }catch(e){}
  updateLabels();
 }
-function updateLabels(){
- for(const id of ["rate","pitch","echo","distortion","angel"]){
- const el=document.getElementById(id);document.getElementById(id+"Value").textContent=el.value+(id==="rate"?"×":(["echo","distortion","angel"].includes(id)?"%":""));
- }
+function cancelSpeech(){
+ speechRun++;
+ if(pauseTimer!==null){clearTimeout(pauseTimer);pauseTimer=null;}
+ try{speechSynthesis.cancel()}catch(e){}
+ speaking=false;
 }
-function stopAtmosphere(){
- for(const layer of fxNodes){
-   try{layer.gain.gain.cancelScheduledValues(audioContext.currentTime);layer.gain.gain.setTargetAtTime(0,audioContext.currentTime,0.11)}catch(e){}
-   try{layer.osc.stop(audioContext.currentTime+0.65)}catch(e){}
- }
- fxNodes=[];
-}
-function startAtmosphere(){
- stopAtmosphere();
- const choir=Number(angel.value)/100,corrupt=Number(distortion.value)/100,echoAmount=Number(echo.value)/100;
- if(choir===0&&corrupt===0)return;
- try{
- const AudioContextClass=window.AudioContext||window.webkitAudioContext;if(!AudioContextClass)return;
- audioContext=audioContext||new AudioContextClass();audioContext.resume().catch(()=>{});
- const ctx=audioContext,now=ctx.currentTime;
- const master=ctx.createGain();master.gain.value=Math.min(.12,.035*choir+.025*corrupt);
- master.connect(ctx.destination);
- const delay=ctx.createDelay(1),wet=ctx.createGain();
- delay.delayTime.value=.28;wet.gain.value=echoAmount*.26;
- master.connect(delay);delay.connect(wet);wet.connect(ctx.destination);
- // Parallel, wordless vocal layer: low harmonics filtered around vowel-like formants.
- // SpeechSynthesis audio itself can't be routed into Web Audio effects.
- const oscillators=[
-  {freq:110.0,type:"sawtooth",level:choir*.65,formant:640},
-  {freq:164.81,type:"triangle",level:choir*.5,formant:1150},
-  {freq:220.0,type:"sawtooth",level:choir*.25,formant:900},
-  {freq:55.0,type:"sawtooth",level:corrupt*.45,formant:350}
- ];
- for(const item of oscillators){
-  if(!item.level)continue;
-  const osc=ctx.createOscillator(),vowel=ctx.createBiquadFilter(),gain=ctx.createGain();
-  osc.type=item.type;osc.frequency.value=item.freq;
-  vowel.type="bandpass";vowel.frequency.value=item.formant;vowel.Q.value=0.8;
-  gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(item.level,now+.45);
-  osc.connect(vowel);vowel.connect(gain);gain.connect(master);osc.start();
-  fxNodes.push({osc,gain});
- }
- // Gentle tremolo makes the underlying tone feel like a distant chorus.
- const lfo=ctx.createOscillator(),depth=ctx.createGain();
- lfo.frequency.value=3.7;depth.gain.value=0.008+0.01*choir;
- lfo.connect(depth);depth.connect(master.gain);lfo.start();
- fxNodes.push({osc:lfo,gain:master});
- // Tear down connections after a speech segment ends.
- setTimeout(()=>{try{delay.disconnect();wet.disconnect()}catch(e){}},120000);
- }catch(e){console.warn("Atmosphere unavailable",e)}
-}
-
-const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
-const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),echo=document.querySelector("#echo"),distortion=document.querySelector("#distortion"),angel=document.querySelector("#angel");
 function loadVoices(){
  if(!window.speechSynthesis){voiceInfo.textContent="Speech synthesis unavailable.";return;}
  const voices=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith("en"));
  if(!voices.length){voiceInfo.textContent="No English voice loaded yet.";return;}
  const previous=voiceSelect.value;
- let savedName="";try{savedName=JSON.parse(localStorage.getItem("mercyVoiceV2")||"null")?.voice||""}catch(e){}
+ let savedName="";try{savedName=JSON.parse(localStorage.getItem("mercyVoiceV3")||"null")?.voice||""}catch(e){}
  voiceSelect.replaceChildren();
  for(const v of voices){const o=document.createElement("option");o.value=v.voiceURI;o.textContent=v.name+" ("+v.lang+")";voiceSelect.appendChild(o);}
  const defaultVoice=voices.find(v=>v.name===savedName)||voices.find(v=>v.name===preferredVoiceName)||voices.find(v=>/david|mark|guy|ryan|daniel|george|male|english.*(united kingdom|british)/i.test(v.name))||voices.find(v=>v.localService)||voices[0];
@@ -123,10 +83,13 @@ function loadVoices(){
  voiceInfo.textContent="Selected voice: "+chosenVoice.name;
 }
 voiceSelect.addEventListener("change",()=>{chosenVoice=speechSynthesis.getVoices().find(v=>v.voiceURI===voiceSelect.value)||null;voiceInfo.textContent=chosenVoice?"Selected voice: "+chosenVoice.name:"Using default voice";saveVoicePrefs();});
-for(const id of ["rate","pitch","echo","distortion","angel"]){const el=document.getElementById(id);el.addEventListener("input",()=>{updateLabels();saveVoicePrefs();});}
+for(const id of ["rate","pitch","pause"]){
+ document.getElementById(id).addEventListener("input",()=>{updateLabels();saveVoicePrefs();});
+}
 document.querySelector("#preset").onclick=()=>{
- rate.value="0.75";pitch.value="0.45";echo.value="35";distortion.value="20";angel.value="30";
- const pref=speechSynthesis?.getVoices().find(v=>v.name===preferredVoiceName);if(pref){voiceSelect.value=pref.voiceURI;chosenVoice=pref;}
+ rate.value="0.75";pitch.value="0.45";pause.value="350";
+ const pref=speechSynthesis?.getVoices().find(v=>v.name===preferredVoiceName);
+ if(pref){voiceSelect.value=pref.voiceURI;chosenVoice=pref;}
  updateLabels();saveVoicePrefs();loadVoices();
 };
 restoreVoicePrefs();
@@ -141,24 +104,45 @@ if(/(what time|the time)/.test(x))return "It is "+new Date().toLocaleTimeString(
 return "I heard you say "+t+". I am still learning how to think.";
 }
 function say(t,fromTest=false){
-if(!fromTest)add("MERCY",t);
-if(!window.speechSynthesis){status.textContent="Speech output unsupported by this browser.";return;}
-try{
-  if(!chosenVoice)loadVoices();
-  speaking=true;
-  // Stop microphone recognition so the synthesizer doesn't hear itself.
-  if(recognition)try{recognition.abort();}catch(e){}
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(t);
-  if(chosenVoice)u.voice=chosenVoice;
-  u.lang=chosenVoice?.lang||"en-US";
-  u.volume=1;u.rate=Number(rate.value);u.pitch=Number(pitch.value);
-  u.onstart=()=>{status.textContent="Speaking through: "+(u.voice?.name||"default voice");startAtmosphere();};
-  u.onend=()=>{stopAtmosphere();speaking=false;if(active)tryListen();else sync();};
-  u.onerror=e=>{stopAtmosphere();speaking=false;status.textContent="Voice error: "+e.error+". Try another browser or check system audio.";};
-  speechSynthesis.speak(u);
-  status.textContent="Voice request sent to browser…";
-}catch(e){speaking=false;status.textContent="Speech error: "+e.message;}
+ if(!fromTest)add("MERCY",t);
+ if(!window.speechSynthesis){status.textContent="Speech output unsupported by this browser.";return;}
+ if(!chosenVoice)loadVoices();
+ cancelSpeech();
+ const thisRun=++speechRun;
+ speaking=true;
+ // Disable recognition throughout the entire phrase, including silences.
+ if(recognition)try{recognition.abort()}catch(e){}
+ const words=t.trim().split(/\s+/).filter(Boolean);
+ let index=0;
+ function finish(){
+  if(thisRun!==speechRun)return;
+  pauseTimer=null;speaking=false;
+  if(active)tryListen();else sync();
+ }
+ function nextWord(){
+  if(thisRun!==speechRun)return;
+  if(index>=words.length){finish();return;}
+  const word=words[index++];
+  const utterance=new SpeechSynthesisUtterance(word);
+  if(chosenVoice)utterance.voice=chosenVoice;
+  utterance.lang=chosenVoice?.lang||"en-US";
+  utterance.volume=1;utterance.rate=Number(rate.value);utterance.pitch=Number(pitch.value);
+  utterance.onstart=()=>{if(thisRun===speechRun)status.textContent="MERCY speaks: "+word+" ("+index+"/"+words.length+")";};
+  utterance.onend=()=>{
+   if(thisRun!==speechRun)return;
+   pauseTimer=setTimeout(nextWord,Number(pause.value)+(word.match(/[.!?]$/)?450:0));
+  };
+  utterance.onerror=e=>{
+   if(thisRun!==speechRun)return;
+   if(e.error==="canceled"||e.error==="interrupted")return;
+   status.textContent="Voice error: "+e.error;
+   // Continue when one word fails, without getting stuck in the speaking state.
+   pauseTimer=setTimeout(nextWord,Number(pause.value));
+  };
+  try{speechSynthesis.speak(utterance)}
+  catch(e){status.textContent="Voice error: "+e.message;finish();}
+ }
+ nextWord();
 }
 function sync(){start.disabled=active||!SR;stop.disabled=!active;status.textContent=!SR?"Speech recognition not supported. Try Chrome or Edge.":active?(speaking?"Mercy is speaking…":"Listening…"):"Microphone stopped.";}
 function tryListen(){if(!active||speaking||!recognition)return;try{recognition.start();status.textContent="Listening…"}catch(e){status.textContent="Microphone starting…";}}
@@ -168,9 +152,9 @@ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcrip
 recognition.onend=()=>{if(active&&!speaking)tryListen();else sync()};
 recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;status.textContent="Microphone blocked or unavailable. Check browser permissions.";sync()}else status.textContent="Speech error: "+e.error;};
 }
-testVoice.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}start.disabled=false;stop.disabled=true;say("Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?",true)};
-start.onclick=()=>{active=true;sync();tryListen()};
-stop.onclick=()=>{active=false;try{recognition?.stop()}catch(e){}speechSynthesis?.cancel();stopAtmosphere();speaking=false;sync()};
+testVoice.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}start.disabled=false;stop.disabled=false;say("Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?",true)};
+start.onclick=()=>{cancelSpeech();active=true;sync();tryListen()};
+stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync()};
 sync();
 </script>
 </body></html>
