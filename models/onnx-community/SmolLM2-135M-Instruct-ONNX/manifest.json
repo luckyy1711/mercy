@@ -1,0 +1,11 @@
+{
+  "model": "onnx-community/SmolLM2-135M-Instruct-ONNX",
+  "dtype": "int8",
+  "size": 135658354,
+  "sha256": "0fab87142e3eb1fcacb881f8282e7473e62ad66920c347b81f088da6fda2da37",
+  "parts": [
+    "model_int8.onnx.part00",
+    "model_int8.onnx.part01",
+    "model_int8.onnx.part02"
+  ]
+}

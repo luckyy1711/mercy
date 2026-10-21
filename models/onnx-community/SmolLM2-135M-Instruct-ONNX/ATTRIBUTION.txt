@@ -1,0 +1,1 @@
+SmolLM2-135M-Instruct: HuggingFaceTB, Apache License 2.0.\nONNX conversion: onnx-community.\nhttps://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct\nhttps://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX\nhttps://www.apache.org/licenses/LICENSE-2.0\n
