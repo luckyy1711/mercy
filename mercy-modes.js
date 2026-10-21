@@ -133,14 +133,46 @@ function answer(user,report){
  generationQueue=job.catch(()=>{});
  return job;
 }
+// Ground factual questions about the visitor in saved conversation data.
+// This is a memory lookup, not a scripted conversation or an invented identity.
+function isNameQuestion(input){
+ const t=String(input).trim().toLowerCase();
+ return /\\b(?:what(?:'s| is) my name|do you (?:know|remember) my name|tell me my name)\\b/.test(t);
+}
+function wordLimit(input){
+ const t=String(input).toLowerCase();
+ const m=t.match(/\\b(?:in|using|with|exactly)\\s+(\\d{1,2})\\s*[-–]\\s*(\\d{1,2})\\s+words?\\b/)||
+         t.match(/\\b(?:in|using|with|exactly)\\s+(\\d{1,2})\\s+words?\\b/);
+ if(!m)return null;
+ const lo=Number(m[1]),hi=Number(m[2]||m[1]);
+ return lo>0&&hi>=lo&&hi<=60?{lo,hi}:null;
+}
+function memoryAnswer(question){
+ if(!isNameQuestion(question))return null;
+ const limit=wordLimit(question);
+ const answer=memory.name
+  ?"You told me your name is "+memory.name+"."
+  :"I don't know your name just yet.";
+ if(limit){
+  const count=answer.trim().split(/\\s+/).length;
+  if(count<limit.lo||count>limit.hi)return {text:answer,notice:"The requested word count conflicts with the available name information."};
+ }
+ return {text:answer};
+}
 async function generateAnswer(user,report){
  const epoch=memoryGeneration;
+ const grounded=memoryAnswer(user);
+ if(grounded){
+  if(epoch!==memoryGeneration)return {cancelled:true};
+  remember(user,grounded.text);
+  return grounded;
+ }
  if(!generator){
   if(!await load(report))return {error:"Local AI unavailable. Check model status and try again."};
  }
  if(epoch!==memoryGeneration)return {cancelled:true};
  state="Writing a new answer…";report?.(state);
- const self="You are MERCY, a fictional ancient gothic guardian and AI character. You can record and inspect prior exchanges, but you are not known to be conscious. Reply directly to the latest user in one or two coherent sentences. Be original and gently sarcastic where fitting, without routine dramatic introductions. Never invent personal memories. If uncertain, say so. No markdown, role labels or stage directions.";
+ const self="You are MERCY, a fictional gothic guardian AI character. Answer the user\u0027s latest question DIRECTLY before adding personality. Never generate unrelated advice. Keep answers short and meaningful. Follow requested word limits. Be dryly sarcastic only when appropriate. If a fact is unknown, say you do not know. You are not conscious. No markdown or role labels.";
  const continuity=memory.name?"The user said their name is "+memory.name+". ":"";
  try{
   const messages=[
@@ -149,7 +181,7 @@ async function generateAnswer(user,report){
    {role:"user",content:String(user).slice(0,500)}
   ];
   const output=await generator(messages,{
-   max_new_tokens:100,do_sample:true,temperature:.7,
+   max_new_tokens:75,do_sample:false,
    repetition_penalty:1.16,return_full_text:false
   });
   if(epoch!==memoryGeneration)return {cancelled:true};
