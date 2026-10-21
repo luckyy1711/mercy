@@ -1,5 +1,5 @@
 "use strict";
-const SHELL="mercy-shell-v4";
+const SHELL="mercy-shell-v5";
 const ASSETS=["./","./index.html","./mercy-modes.js"];
 const MODEL_END="/onnx-community/SmolLM2-135M-Instruct-ONNX/onnx/model_int8.onnx";
 self.addEventListener("install",event=>{
@@ -8,7 +8,7 @@ self.addEventListener("install",event=>{
 });
 self.addEventListener("message",event=>{
  if(event.data?.type==="MERCY_WORKER_VERSION"){
-  event.ports?.[0]?.postMessage({version:4});
+  event.ports?.[0]?.postMessage({version:5});
  }
 });
 self.addEventListener("activate",event=>{
@@ -33,22 +33,27 @@ async function modelResponse(request){
  const stream=new ReadableStream({
   async pull(controller){
    try{
-    while(!reader){
-     if(index>=manifest.parts.length){controller.close();return;}
-     const part=manifest.parts[index++];
-     if(!/^model_int8\.onnx\.part\d{2}$/.test(part))throw Error("Unsafe model part name");
-     const url=new URL(part,base);
-     let response;
-     try{
-      response=await fetch(url.href);
-      if(response.ok)cache.put(url.href,response.clone()).catch(()=>{});
-     }catch(e){response=await cache.match(url.href);}
-     if(!response?.ok||!response.body)throw Error("Model part failed to load: "+part);
-     reader=response.body.getReader();
+    // Always enqueue, close or error on every pull. Returning without
+    // doing any of those could stall ONNX model loading between chunks.
+    for(;;){
+     if(!reader){
+      if(index>=manifest.parts.length){controller.close();return;}
+      const part=manifest.parts[index++];
+      if(!/^model_int8\\.onnx\\.part\\d{2}$/.test(part))throw Error("Unsafe model part name");
+      const url=new URL(part,base);
+      let response;
+      try{
+       response=await fetch(url.href);
+       if(response.ok)cache.put(url.href,response.clone()).catch(()=>{});
+      }catch(e){response=await cache.match(url.href);}
+      if(!response?.ok||!response.body)throw Error("Model part failed to load: "+part);
+      reader=response.body.getReader();
+     }
+     const chunk=await reader.read();
+     if(chunk.done){reader.releaseLock();reader=null;continue;}
+     controller.enqueue(chunk.value);
+     return;
     }
-    const chunk=await reader.read();
-    if(chunk.done){reader.releaseLock();reader=null;return;}
-    controller.enqueue(chunk.value);
    }catch(e){controller.error(e);}
   },
   cancel(){reader?.cancel().catch(()=>{});}
