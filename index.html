@@ -6,323 +6,105 @@
 <style>
 :root{color-scheme:dark;font-family:system-ui,Segoe UI,sans-serif}
 *{box-sizing:border-box}body{min-height:100vh;display:grid;place-items:center;margin:0;background:radial-gradient(ellipse at 50% 25%,#2c1831 0%,#100e14 55%,#09090b 100%);color:#eee}
-main{width:min(90vw,650px);padding:32px;border:1px solid #57455b;background:#110e16df;border-radius:22px;text-align:center;box-shadow:0 20px 90px #0008}
+main{width:min(92vw,650px);padding:32px;border:1px solid #57455b;background:#110e16df;border-radius:22px;text-align:center;box-shadow:0 20px 90px #0008}
 h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(50px,12vw,88px);letter-spacing:.14em;margin:10px 0;color:#eed8e6}
 small{color:#bba7b5;letter-spacing:.2em}p{line-height:1.6}
 button{background:#dcc2d1;color:#19101b;padding:13px 23px;border-radius:40px;border:0;cursor:pointer;font-weight:700;margin:7px}
 button.secondary{background:transparent;color:#ead8e4;border:1px solid #745a70}
 button:disabled{opacity:.45;cursor:not-allowed}
 #status{color:#d9a4c6;min-height:28px}
-.log{border:1px solid #46394b;background:#0b0a0ed0;text-align:left;border-radius:12px;padding:16px;min-height:110px;max-height:270px;overflow:auto;margin-top:20px;word-wrap:break-word}
+.log{border:1px solid #46394b;background:#0b0a0ed0;text-align:left;border-radius:12px;padding:16px;min-height:110px;max-height:270px;overflow:auto;margin-top:20px;overflow-wrap:anywhere}
 .log p{margin:6px 0}.me{color:#c4b9ce}.mercy{color:#e4b8d0}
 footer{font-size:12px;color:#9b8e9c;margin-top:18px}
-.voice-panel{margin:18px auto 8px;display:grid;gap:9px;text-align:left;max-width:420px;font-size:13px;color:#dccbd7}
-.voice-panel select{width:100%;padding:10px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:9px}
-.voice-panel label{display:flex;justify-content:space-between;gap:12px;align-items:center}
-.voice-panel input{accent-color:#e5b6d2;min-width:170px}
-.voice-panel textarea{width:100%;min-height:70px;padding:12px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:9px;resize:vertical;font:inherit}
-.voice-panel .mode{color:#e5bad3;text-align:center;font-size:11px;letter-spacing:.18em;border-bottom:1px solid #564254;padding-bottom:12px}
-.voice-panel details{border:1px solid #57455b;border-radius:12px;padding:12px}
-.voice-panel summary{cursor:pointer;color:#eed8e6;font-weight:600}
-.voice-settings{display:grid;gap:9px;margin-top:14px}
-</style>
-</head>
-<body>
-<main>
-<small>THE VOICE PROTOTYPE · V2</small>
-<h1>MERCY</h1>
-<p>A voice in the dark. Speak, and she will answer.</p>
+.panel{margin:18px auto 8px;display:grid;gap:12px;text-align:left;max-width:420px;font-size:13px;color:#dccbd7}
+.panel label{display:flex;justify-content:space-between;gap:12px}
+.panel input{width:100%;accent-color:#e5b6d2}
+.panel textarea{width:100%;min-height:76px;padding:12px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:9px;resize:vertical;font:inherit}
+.mode{color:#e5bad3;text-align:center;font-size:11px;letter-spacing:.18em;border-bottom:1px solid #564254;padding-bottom:12px}
+</style></head>
+<body><main>
+<small>VOICE PROTOTYPE · ORIGINAL</small>
+<h1>MERCY</h1><p>A voice in the dark. Speak, and she will answer.</p>
 <p id="status" role="status">Press Start to activate the microphone.</p>
-<button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button><button class="secondary" id="testVoice">🪽 Hear Mercy’s monologue</button><p id="voiceInfo" style="font-size:12px;color:#bba7b5">Voice: checking browser voices…</p>
-<div class="voice-panel">
-<p class="mode">MERCY · DARK FANTASY VOICE STUDIO</p>
-<label for="voiceStyle">Voice character</label>
-<select id="voiceStyle">
-<option value="haunting">Haunting Mercy — original</option>
-<option value="mohg">Blood Ritual — Mohg-inspired</option>
-<option value="godfrey">Elden Lord — Godfrey-inspired</option>
-</select>
-<p id="styleDescription" style="font-size:12px;color:#bba7b5;margin:0">Haunting: low, intimate and unsettling.</p>
-<p style="font-size:12px;color:#af9fad;margin:0">Inspired voice presets, not original game character recordings.</p>
-<details id="advanced"><summary>Fine-tune voice settings</summary><div class="voice-settings">
-<label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
-<label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
-<label for="volume">Loudness <output id="volumeValue">100%</output></label><input id="volume" type="range" min="20" max="100" step="5" value="100">
-<label for="reverb">Voice reverb <output id="reverbValue">25%</output></label>
-<input id="reverb" type="range" min="0" max="60" step="5" value="25">
-<button class="secondary" id="enableReverb" type="button">Enable real voice reverb</button>
-<p id="reverbStatus" style="font-size:12px;color:#bba7b5;margin:0">Off. Desktop Chrome/Edge: select “This Tab” and enable “Also share tab audio” when prompted.</p>
-<label for="breath">Breathy atmosphere <output id="breathValue">15%</output></label><input id="breath" type="range" min="0" max="100" step="5" value="15">
-<label for="whisper">Whisper-like delivery <output id="whisperValue">20%</output></label><input id="whisper" type="range" min="0" max="100" step="5" value="20">
-<label for="texture">Grit / vocal texture <output id="textureValue">0%</output></label><input id="texture" type="range" min="0" max="60" step="5" value="0">
-</div></details>
-<button class="secondary" id="laugh" type="button">Hear Mercy laugh</button>
-<button class="secondary" id="preset">Reset to Haunting Mercy</button>
-<label for="customPhrase">Test with your own words</label><textarea id="customPhrase" rows="3" maxlength="500" placeholder="Write a line for Mercy to speak…" aria-label="Custom test phrase"></textarea>
-<button class="secondary" id="testCustom">Speak custom phrase</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">Select a voice character and play the monologue to compare the same words. Fine-tuning is optional.</p>
-</div><div class="log" id="log" aria-live="polite"></div>
-<footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
+<button id="start">Start listening</button>
+<button class="secondary" id="stop" disabled>Stop</button>
+<button class="secondary" id="testVoice">Hear Mercy's monologue</button>
+<p id="voiceInfo" style="font-size:12px;color:#bba7b5">Loading voice…</p>
+<div class="panel">
+<p class="mode">HAUNTING · MERCY'S ORIGINAL VOICE</p>
+<label for="rate">Speech speed <output id="rateValue">0.75×</output></label>
+<input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
+<label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label>
+<input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
+<button class="secondary" id="preset">Reset original voice</button>
+<label for="customPhrase">Test your own phrase</label>
+<textarea id="customPhrase" maxlength="500" placeholder="What should Mercy say?"></textarea>
+<button class="secondary" id="testCustom">Speak phrase</button>
+</div>
+<div class="log" id="log" aria-live="polite"></div>
+<footer>No effects or tab sharing required. Microphone recognition may use your browser provider. Conversational AI is not yet connected.</footer>
 </main>
 <script>
 "use strict";
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
-let recognition=null,active=false,speaking=false,chosenVoice=null;
+const rate=document.querySelector("#rate"),pitch=document.querySelector("#pitch"),voiceInfo=document.querySelector("#voiceInfo");
+let recognition=null,active=false,speaking=false,chosenVoice=null,speechRun=0;
 const preferredVoiceName="Google UK English Male";
-let speechRun=0;
-const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
-const pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),volume=document.querySelector("#volume");
-const voiceStyle=document.querySelector("#voiceStyle"),styleDescription=document.querySelector("#styleDescription");
-const styleProfiles={
- haunting:{rate:"0.75",pitch:"0.45",volume:"100",breath:"15",whisper:"20",reverb:"25",texture:"0",description:"Haunting: low, intimate and unsettling."},
- mohg:{rate:"0.65",pitch:"0.35",volume:"100",breath:"30",whisper:"40",reverb:"45",texture:"15",description:"Blood Ritual: slow, ceremonial menace and a hollow presence."},
- godfrey:{rate:"0.90",pitch:"0.55",volume:"100",breath:"5",whisper:"0",reverb:"20",texture:"10",description:"Elden Lord: powerful, measured and commanding."}
-};
-function applyStyle(name){
- const p=styleProfiles[name]||styleProfiles.haunting;
- voiceStyle.value=styleProfiles[name]?name:"haunting";
- for(const id of ["rate","pitch","volume","breath","whisper","reverb","texture"])document.getElementById(id).value=p[id];
- styleDescription.textContent=p.description;
- updateLabels();saveVoicePrefs();
-}
-const breath=document.querySelector("#breath"),whisper=document.querySelector("#whisper"),texture=document.querySelector("#texture");
-let breathCtx=null,breathCleanup=null;
-function stopBreath(){
- if(breathCleanup){breathCleanup();breathCleanup=null;}
-}
-function playExhale(){
- const intensity=Number(breath.value)/100;
- if(!intensity)return;
- try{
- const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
- breathCtx=breathCtx||new AC();breathCtx.resume().catch(()=>{});
- const ctx=breathCtx,len=Math.floor(ctx.sampleRate*.95),buffer=ctx.createBuffer(1,len,ctx.sampleRate),data=buffer.getChannelData(0);
- for(let i=0;i<len;i++)data[i]=Math.random()*2-1;
- const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain(),now=ctx.currentTime;
- src.buffer=buffer;filter.type="bandpass";filter.frequency.value=1050;filter.Q.value=.35;
- gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(intensity*.055,now+.22);gain.gain.exponentialRampToValueAtTime(.0001,now+.9);
- src.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
- src.start();src.stop(now+.95);
- breathCleanup=()=>{try{src.stop()}catch(e){}try{src.disconnect();filter.disconnect();gain.disconnect()}catch(e){}};
- src.onended=()=>{try{src.disconnect();filter.disconnect();gain.disconnect()}catch(e){}if(breathCleanup)breathCleanup=null;};
- }catch(e){console.warn("Breath effect unavailable",e);}
-}
-const reverb=document.querySelector("#reverb"),reverbValue=document.querySelector("#reverbValue"),reverbStatus=document.querySelector("#reverbStatus"),enableReverb=document.querySelector("#enableReverb");
-let reverbStream=null,reverbContext=null,reverbNodes=null;
-function updateReverb(){
- reverbValue.textContent=reverb.value+"%";
- if(reverbNodes){
-  const wet=Number(reverb.value)/100;
-  reverbNodes.wet1.gain.value=wet*.42;
-  reverbNodes.wet2.gain.value=wet*.19;
-  reverbNodes.drive.curve=distortionCurve(Number(texture.value)/100);
-  reverbNodes.drive.oversample="2x";
- }
-}
-function distortionCurve(intensity){
- const n=2048,curve=new Float32Array(n),k=intensity*65;
- for(let i=0;i<n;i++){const x=(i/(n-1))*2-1;curve[i]=k===0?x:(1+k)*x/(1+k*Math.abs(x));}
- return curve;
-}
-function disableReverb(){
- const stream=reverbStream;
- reverbStream=null;
- if(stream)for(const track of stream.getTracks())try{track.stop()}catch(e){}
- if(reverbNodes){
-  try{reverbNodes.source.disconnect();reverbNodes.delay1.disconnect();reverbNodes.delay2.disconnect();reverbNodes.wet1.disconnect();reverbNodes.wet2.disconnect();reverbNodes.drive.disconnect()}catch(e){}
-  reverbNodes=null;
- }
- if(reverbContext){reverbContext.close().catch(()=>{});reverbContext=null;}
- enableReverb.textContent="Enable real voice reverb";
- reverbStatus.textContent="Off. Click Enable and share this tab with audio.";
-}
-async function toggleReverb(){
- if(reverbStream){disableReverb();return;}
- if(!navigator.mediaDevices?.getDisplayMedia){
-  reverbStatus.textContent="This browser cannot capture tab audio. Try desktop Chrome or Edge.";
-  return;
- }
- enableReverb.disabled=true;
- try{
-  const stream=await navigator.mediaDevices.getDisplayMedia({
-   video:true,audio:true,preferCurrentTab:true,selfBrowserSurface:"include",
-   systemAudio:"exclude",surfaceSwitching:"exclude"
-  });
-  if(stream.getAudioTracks().length===0){
-   for(const track of stream.getTracks())track.stop();
-   reverbStatus.textContent="No tab audio was shared. Choose This Tab and tick Also share tab audio.";
-   return;
-  }
-  const ctx=new (window.AudioContext||window.webkitAudioContext)();
-  await ctx.resume();
-  const source=ctx.createMediaStreamSource(stream);
-  // Wet-only echoes: original TTS plays normally; the captured voice feeds quiet repeats.
-  // Do not route the captured dry voice back to the speakers.
-  const delay1=ctx.createDelay(1),delay2=ctx.createDelay(1),wet1=ctx.createGain(),wet2=ctx.createGain(),drive=ctx.createWaveShaper();
-  delay1.delayTime.value=.19;delay2.delayTime.value=.43;
-  source.connect(drive);drive.connect(delay1);drive.connect(delay2);
-  delay1.connect(wet1);delay2.connect(wet2);
-  wet1.connect(ctx.destination);wet2.connect(ctx.destination);
-  reverbStream=stream;reverbContext=ctx;
-  reverbNodes={source,delay1,delay2,wet1,wet2,drive};
-  updateReverb();
-  enableReverb.textContent="Disable real voice reverb";
-  reverbStatus.textContent="Reverb enabled for captured tab audio. Turn it off if echoes build up.";
-  stream.getVideoTracks()[0]?.addEventListener("ended",disableReverb,{once:true});
-  stream.getAudioTracks()[0]?.addEventListener("ended",disableReverb,{once:true});
- }catch(e){
-  reverbStatus.textContent=e.name==="NotAllowedError"?"Tab sharing cancelled. Voice still works normally.":"Reverb unavailable: "+e.message;
- }finally{enableReverb.disabled=false;}
-}
-enableReverb.addEventListener("click",toggleReverb);
-updateReverb();
-function saveVoicePrefs(){
- try{localStorage.setItem("mercyHauntingV1",JSON.stringify({rate:rate.value,pitch:pitch.value,volume:volume.value,reverb:reverb.value,breath:breath.value,whisper:whisper.value,texture:texture.value,style:voiceStyle.value}));}catch(e){}
-}
-function updateLabels(){
- document.querySelector("#rateValue").textContent=rate.value+"×";
- document.querySelector("#pitchValue").textContent=pitch.value;
- document.querySelector("#volumeValue").textContent=volume.value+"%";
- for(const id of ["breath","whisper","texture"])document.getElementById(id+"Value").textContent=document.getElementById(id).value+"%";
- updateReverb();
-}
-function restoreVoicePrefs(){
- try{
-  const v=JSON.parse(localStorage.getItem("mercyHauntingV1")||"null");
-  if(v){
-   if(v.style&&styleProfiles[v.style])voiceStyle.value=v.style;
-   for(const key of ["rate","pitch","volume","reverb","breath","whisper","texture"]){
-    if(v[key]!==undefined)document.getElementById(key).value=v[key];
-   }
-  }
-  else{
-   const old=JSON.parse(localStorage.getItem("mercyVoiceV4")||"null");
-   if(old){if(old.rate!==undefined)rate.value=old.rate;if(old.pitch!==undefined)pitch.value=old.pitch;}
-  }
- }catch(e){}
- styleDescription.textContent=styleProfiles[voiceStyle.value].description;
- updateLabels();
-}
-function cancelSpeech(){
- stopBreath();
- speechRun++;
- try{speechSynthesis.cancel()}catch(e){}
- speaking=false;
-}
+const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
 function loadVoices(){
- if(!window.speechSynthesis){voiceInfo.textContent="Speech synthesis unavailable.";return;}
+ if(!window.speechSynthesis){voiceInfo.textContent="Speech unavailable in this browser.";return;}
  const voices=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith("en"));
- if(!voices.length){voiceInfo.textContent="Waiting for browser voices…";return;}
+ if(!voices.length){voiceInfo.textContent="Waiting for English browser voice…";return;}
  chosenVoice=voices.find(v=>v.name===preferredVoiceName)
    ||voices.find(v=>v.lang==="en-GB"&&/male|david|daniel|george|ryan/i.test(v.name))
    ||voices.find(v=>v.lang==="en-GB")||voices[0];
- voiceInfo.textContent="Haunting voice · "+chosenVoice.name+" ("+chosenVoice.lang+")"
-  +(chosenVoice.name!==preferredVoiceName?" · device fallback":"");
+ voiceInfo.textContent="Voice: "+chosenVoice.name+" ("+chosenVoice.lang+")";
 }
-for(const id of ["rate","pitch","volume","reverb","breath","whisper","texture"]){
- document.getElementById(id).addEventListener("input",()=>{updateLabels();saveVoicePrefs();});
-}
-voiceStyle.addEventListener("change",()=>applyStyle(voiceStyle.value));
-document.querySelector("#preset").onclick=()=>applyStyle("haunting");
-document.querySelector("#testCustom").onclick=()=>{
- const words=document.querySelector("#customPhrase").value.trim();
- if(!words){status.textContent="Enter a phrase for Mercy first.";return;}
- active=false;try{recognition?.abort()}catch(e){}
- start.disabled=false;stop.disabled=false;
- say(words,true);
-};
-restoreVoicePrefs();
+function labels(){document.querySelector("#rateValue").textContent=rate.value+"×";document.querySelector("#pitchValue").textContent=pitch.value;}
+function save(){try{localStorage.setItem("mercyOriginalVoice",JSON.stringify({rate:rate.value,pitch:pitch.value}));}catch(e){}}
+try{const v=JSON.parse(localStorage.getItem("mercyOriginalVoice")||"null");if(v){if(v.rate)rate.value=v.rate;if(v.pitch)pitch.value=v.pitch;}}catch(e){}
+labels();
+for(const el of [rate,pitch])el.addEventListener("input",()=>{labels();save();});
+document.querySelector("#preset").onclick=()=>{rate.value="0.75";pitch.value="0.45";labels();save();};
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
-const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
-function reply(t){
- const x=t.toLowerCase();
+function reply(t){const x=t.toLowerCase();
  if(/(goodbye|stop listening|go to sleep)/.test(x)){active=false;return "Until we meet again.";}
  if(/(who are you|your name)/.test(x))return "My name is Mercy. I hear you.";
  if(/(hello|hey|hi mercy)/.test(x))return "Hello. You found me.";
- if(/(can you hear me)/.test(x))return "Every word.";
+ if(/can you hear me/.test(x))return "Every word.";
  if(/(what time|the time)/.test(x))return "It is "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+".";
  return "I heard you say "+t+". I am still learning how to think.";
 }
-function say(t,fromTest=false){
- if(!fromTest)add("MERCY",t);
- if(!window.speechSynthesis){status.textContent="Speech output unsupported by this browser.";return;}
+function sync(){
+ start.disabled=active||!SR;stop.disabled=!active&&!speaking;
+ status.textContent=!SR?"Speech recognition unavailable; try Chrome or Edge.":speaking?"Mercy is speaking…":active?"Listening…":"Microphone stopped.";
+}
+function cancelSpeech(){speechRun++;try{speechSynthesis.cancel()}catch(e){}speaking=false;}
+function listen(){if(!active||speaking||!recognition)return;try{recognition.start();status.textContent="Listening…";}catch(e){}}
+function say(text,test=false){
+ if(!test)add("MERCY",text);
+ if(!window.speechSynthesis){status.textContent="Speech not supported.";return;}
  if(!chosenVoice)loadVoices();
- cancelSpeech();
- const thisRun=++speechRun;
- speaking=true;
- if(recognition)try{recognition.abort()}catch(e){}
- // A SINGLE utterance allows the TTS engine to connect words naturally.
- const utterance=new SpeechSynthesisUtterance(t);
- if(chosenVoice)utterance.voice=chosenVoice;
- utterance.lang=chosenVoice?.lang||"en-GB";
- const softness=Number(whisper.value)/100;
- utterance.volume=Number(volume.value)/100*(1-softness*.42);
- utterance.rate=Math.max(.5,Number(rate.value)*(1-softness*.14));
- utterance.pitch=Math.max(.2,Number(pitch.value)-softness*.08);
- utterance.onstart=()=>{if(thisRun===speechRun){status.textContent="Mercy is speaking…";playExhale();}};
- utterance.onend=()=>{
-  if(thisRun!==speechRun)return;
-  speaking=false;if(active)tryListen();else sync();
- };
- utterance.onerror=e=>{
-  if(thisRun!==speechRun||e.error==="canceled"||e.error==="interrupted")return;
-  speaking=false;status.textContent="Voice error: "+e.error;
- };
- try{speechSynthesis.speak(utterance);}
- catch(e){speaking=false;status.textContent="Voice error: "+e.message;}
+ cancelSpeech();const run=++speechRun;speaking=true;try{recognition?.abort()}catch(e){}
+ const u=new SpeechSynthesisUtterance(text);
+ if(chosenVoice)u.voice=chosenVoice;
+ u.lang=chosenVoice?.lang||"en-GB";u.rate=Number(rate.value);u.pitch=Number(pitch.value);u.volume=1;
+ u.onstart=()=>{if(run===speechRun)status.textContent="Mercy is speaking…";};
+ u.onend=()=>{if(run!==speechRun)return;speaking=false;if(active)listen();else sync();};
+ u.onerror=e=>{if(run!==speechRun||e.error==="canceled"||e.error==="interrupted")return;speaking=false;status.textContent="Voice error: "+e.error;};
+ try{speechSynthesis.speak(u);sync();}catch(e){speaking=false;status.textContent="Voice error: "+e.message;}
 }
-function sync(){start.disabled=active||!SR;stop.disabled=!active;status.textContent=!SR?"Speech recognition not supported. Try Chrome or Edge.":active?(speaking?"Mercy is speaking…":"Listening…"):"Microphone stopped.";}
-function tryListen(){if(!active||speaking||!recognition)return;try{recognition.start();status.textContent="Listening…"}catch(e){status.textContent="Microphone starting…";}}
 if(SR){
-recognition=new SR();recognition.lang="en-US";recognition.continuous=false;recognition.interimResults=false;
-recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(!phrase)return;add("YOU",phrase);status.textContent="Thinking…";say(reply(phrase));};
-recognition.onend=()=>{if(active&&!speaking)tryListen();else sync()};
-recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;status.textContent="Microphone blocked or unavailable. Check browser permissions.";sync()}else status.textContent="Speech error: "+e.error;};
+ recognition=new SR();recognition.lang="en-US";recognition.continuous=false;recognition.interimResults=false;
+ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(!phrase)return;add("YOU",phrase);say(reply(phrase));};
+ recognition.onend=()=>{if(active&&!speaking)listen();else sync();};
+ recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;sync();status.textContent="Microphone permission denied or device unavailable.";}};
 }
-testVoice.onclick=()=>{
- active=false;try{recognition?.abort()}catch(e){}
- start.disabled=false;stop.disabled=false;
- say(testMonologue,true);
-};
-function laughSound(){
- const AC=window.AudioContext||window.webkitAudioContext;
- if(!AC){say("Ah... How delightfully unfortunate.",true);return;}
- try{
-  const ctx=breathCtx=breathCtx||new AC();ctx.resume().catch(()=>{});
-  const initial=ctx.currentTime+.03,bursts=[0,.26,.52,.85,1.16,1.48];
-  for(let i=0;i<bursts.length;i++){
-   const at=initial+bursts[i],dur=i<2?.20:.24;
-   const osc=ctx.createOscillator(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
-   osc.type="sawtooth";osc.frequency.setValueAtTime(i%2===0?128:118,at);
-   osc.frequency.exponentialRampToValueAtTime(i%2===0?94:86,at+dur);
-   filter.type="bandpass";filter.frequency.value=650+(i%2)*140;filter.Q.value=.8;
-   gain.gain.setValueAtTime(.0001,at);
-   gain.gain.exponentialRampToValueAtTime(.034,at+.045);
-   gain.gain.exponentialRampToValueAtTime(.0001,at+dur);
-   osc.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
-   osc.start(at);osc.stop(at+dur);
-   osc.onended=()=>{try{osc.disconnect();filter.disconnect();gain.disconnect()}catch(e){}};
-  }
-  // The sound is synthesized rather than an actual recorded human laugh.
-  const ticket=++speechRun;
-  speaking=true;
-  window.setTimeout(()=>{
-   if(ticket!==speechRun)return;
-   say("Ah. How delightfully unfortunate.",true);
-  },2050);
-  status.textContent="Mercy laughs…";
- }catch(e){say("Ah... How delightfully unfortunate.",true);}
-}
-document.querySelector("#laugh").onclick=()=>{
- active=false;try{recognition?.abort()}catch(e){}
- cancelSpeech();
- start.disabled=false;stop.disabled=false;
- laughSound();
-};
-start.onclick=()=>{cancelSpeech();active=true;sync();tryListen()};
-stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync()};
+document.querySelector("#testVoice").onclick=()=>{active=false;say(testMonologue,true);};
+document.querySelector("#testCustom").onclick=()=>{const t=document.querySelector("#customPhrase").value.trim();if(t){active=false;say(t,true);}else status.textContent="Enter a phrase first.";};
+start.onclick=()=>{cancelSpeech();active=true;sync();listen();};
+stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync();};
 sync();
-</script>
-</body></html>
+</script></body></html>
