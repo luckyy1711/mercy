@@ -28,16 +28,16 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <h1>MERCY</h1>
 <p>A voice in the dark. Speak, and she will answer.</p>
 <p id="status" role="status">Press Start to activate the microphone.</p>
-<button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button><button class="secondary" id="testVoice">🔊 Test voice</button><p id="voiceInfo" style="font-size:12px;color:#bba7b5">Voice: checking browser voices…</p>
+<button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button><button class="secondary" id="testVoice">🪽 Hear Mercy’s monologue</button><p id="voiceInfo" style="font-size:12px;color:#bba7b5">Voice: checking browser voices…</p>
 <div class="voice-panel">
 <label for="voiceSelect">Voice</label><select id="voiceSelect"><option value="">Loading available voices…</option></select>
 <label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
 <label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
 <label for="echo">Haunted echo <output id="echoValue">35%</output></label><input id="echo" type="range" min="0" max="100" value="35">
 <label for="distortion">Corrupted harmonics <output id="distortionValue">20%</output></label><input id="distortion" type="range" min="0" max="100" value="20">
-<label for="angel">Angelic underlayer <output id="angelValue">30%</output></label><input id="angel" type="range" min="0" max="100" value="30">
+<label for="angel">Second spectral voice <output id="angelValue">30%</output></label><input id="angel" type="range" min="0" max="100" value="30">
 <button class="secondary" id="preset">Reset Mercy preset</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">These Web Audio effects add a haunted synthetic layer behind the selected browser voice. The spoken voice itself is not being run through an effects processor.</p>
+<p style="font-size:12px;color:#af9fad;text-align:left">The second layer is a synthesized, wordless vocal choir with shifting formants, not a second person speaking the same lines. True layered spoken voices require generated audio files or a dedicated voice engine.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -61,36 +61,49 @@ function updateLabels(){
  }
 }
 function stopAtmosphere(){
- for(const item of fxNodes){try{item.osc.stop()}catch(e){}}
+ for(const layer of fxNodes){
+   try{layer.gain.gain.cancelScheduledValues(audioContext.currentTime);layer.gain.gain.setTargetAtTime(0,audioContext.currentTime,0.11)}catch(e){}
+   try{layer.osc.stop(audioContext.currentTime+0.65)}catch(e){}
+ }
  fxNodes=[];
 }
 function startAtmosphere(){
  stopAtmosphere();
- const angelAmount=Number(angel.value)/100,corrupt=Number(distortion.value)/100,echoAmount=Number(echo.value)/100;
- if(angelAmount===0&&corrupt===0)return;
+ const choir=Number(angel.value)/100,corrupt=Number(distortion.value)/100,echoAmount=Number(echo.value)/100;
+ if(choir===0&&corrupt===0)return;
  try{
- const AudioContextClass=window.AudioContext||window.webkitAudioContext;
- if(!AudioContextClass)return;
- audioContext=audioContext||new AudioContextClass();
- if(audioContext.state==="suspended")audioContext.resume();
- const now=audioContext.currentTime;
- const master=audioContext.createGain();master.gain.setValueAtTime(0,now);master.gain.linearRampToValueAtTime(0.07*angelAmount+0.035*corrupt,now+0.35);
- master.connect(audioContext.destination);
- if(echoAmount){
-  const delay=audioContext.createDelay(1.5);delay.delayTime.value=0.33;
-  const feedback=audioContext.createGain();feedback.gain.value=Math.min(0.45,echoAmount*0.4);
-  const wet=audioContext.createGain();wet.gain.value=echoAmount*0.4;
-  master.connect(delay);delay.connect(wet);wet.connect(audioContext.destination);delay.connect(feedback);feedback.connect(delay);
-  fxNodes.push({osc:{stop(){try{feedback.gain.setTargetAtTime(0,audioContext.currentTime,0.05);wet.gain.setTargetAtTime(0,audioContext.currentTime,0.05);setTimeout(()=>{try{master.disconnect();delay.disconnect();feedback.disconnect();wet.disconnect()}catch(e){}},1200)}catch(e){}}}});
+ const AudioContextClass=window.AudioContext||window.webkitAudioContext;if(!AudioContextClass)return;
+ audioContext=audioContext||new AudioContextClass();audioContext.resume().catch(()=>{});
+ const ctx=audioContext,now=ctx.currentTime;
+ const master=ctx.createGain();master.gain.value=Math.min(.12,.035*choir+.025*corrupt);
+ master.connect(ctx.destination);
+ const delay=ctx.createDelay(1),wet=ctx.createGain();
+ delay.delayTime.value=.28;wet.gain.value=echoAmount*.26;
+ master.connect(delay);delay.connect(wet);wet.connect(ctx.destination);
+ // Parallel, wordless vocal layer: low harmonics filtered around vowel-like formants.
+ // SpeechSynthesis audio itself can't be routed into Web Audio effects.
+ const oscillators=[
+  {freq:110.0,type:"sawtooth",level:choir*.65,formant:640},
+  {freq:164.81,type:"triangle",level:choir*.5,formant:1150},
+  {freq:220.0,type:"sawtooth",level:choir*.25,formant:900},
+  {freq:55.0,type:"sawtooth",level:corrupt*.45,formant:350}
+ ];
+ for(const item of oscillators){
+  if(!item.level)continue;
+  const osc=ctx.createOscillator(),vowel=ctx.createBiquadFilter(),gain=ctx.createGain();
+  osc.type=item.type;osc.frequency.value=item.freq;
+  vowel.type="bandpass";vowel.frequency.value=item.formant;vowel.Q.value=0.8;
+  gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(item.level,now+.45);
+  osc.connect(vowel);vowel.connect(gain);gain.connect(master);osc.start();
+  fxNodes.push({osc,gain});
  }
- for(const [frequency,type,volume] of [[164.81,"sine",angelAmount],[329.63,"sine",angelAmount*0.32],[82.41,"sawtooth",corrupt*0.15]]){
-  if(volume===0)continue;
-  const osc=audioContext.createOscillator(),g=audioContext.createGain();
-  osc.type=type;osc.frequency.value=frequency;g.gain.value=volume;
-  osc.connect(g);g.connect(master);osc.start();
-  fxNodes.push({osc,master,g});
- }
- fxNodes.push({osc:{stop(){try{master.gain.setTargetAtTime(0,audioContext.currentTime,0.09);setTimeout(()=>{try{master.disconnect()}catch(e){}},1000)}catch(e){}}}});
+ // Gentle tremolo makes the underlying tone feel like a distant chorus.
+ const lfo=ctx.createOscillator(),depth=ctx.createGain();
+ lfo.frequency.value=3.7;depth.gain.value=0.008+0.01*choir;
+ lfo.connect(depth);depth.connect(master.gain);lfo.start();
+ fxNodes.push({osc:lfo,gain:master});
+ // Tear down connections after a speech segment ends.
+ setTimeout(()=>{try{delay.disconnect();wet.disconnect()}catch(e){}},120000);
  }catch(e){console.warn("Atmosphere unavailable",e)}
 }
 
@@ -155,7 +168,7 @@ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcrip
 recognition.onend=()=>{if(active&&!speaking)tryListen();else sync()};
 recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;status.textContent="Microphone blocked or unavailable. Check browser permissions.";sync()}else status.textContent="Speech error: "+e.error;};
 }
-testVoice.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}start.disabled=false;stop.disabled=true;say("I am Mercy. You should not have awakened me.",true)};
+testVoice.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}start.disabled=false;stop.disabled=true;say("Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?",true)};
 start.onclick=()=>{active=true;sync();tryListen()};
 stop.onclick=()=>{active=false;try{recognition?.stop()}catch(e){}speechSynthesis?.cancel();stopAtmosphere();speaking=false;sync()};
 sync();
