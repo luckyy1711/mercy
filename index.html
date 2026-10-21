@@ -120,6 +120,9 @@ loadLocal.onclick=async()=>{
  loadLocal.disabled=false;refreshMode();
 };
 refreshMode();
+if("serviceWorker" in navigator){
+ navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
 let querySequence=0;
 async function respond(phrase){
  const sequence=++responseSequence;
@@ -148,6 +151,9 @@ async function respond(phrase){
      }
     }
    }
+  }catch(e){
+   // Failed or timed-out web lookup must never silence local replies.
+   result=null;
   }finally{clearTimeout(watchdog);}
   if(!result)result=await window.MercyBrain.think(phrase);
   if(sequence!==responseSequence||query!==querySequence)return;
