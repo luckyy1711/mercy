@@ -16,6 +16,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .log{border:1px solid #46394b;background:#0b0a0ed0;text-align:left;border-radius:12px;padding:16px;min-height:110px;max-height:270px;overflow:auto;margin-top:20px;word-wrap:break-word}
 .log p{margin:6px 0}.me{color:#c4b9ce}.mercy{color:#e4b8d0}
 footer{font-size:12px;color:#9b8e9c;margin-top:18px}
+.voice-panel{margin:18px auto 8px;display:grid;gap:9px;text-align:left;max-width:420px;font-size:13px;color:#dccbd7}
+.voice-panel select{width:100%;padding:10px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:9px}
+.voice-panel label{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.voice-panel input{accent-color:#e5b6d2;min-width:170px}
 </style>
 </head>
 <body>
@@ -25,7 +29,12 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <p>A voice in the dark. Speak, and she will answer.</p>
 <p id="status" role="status">Press Start to activate the microphone.</p>
 <button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button><button class="secondary" id="testVoice">🔊 Test voice</button><p id="voiceInfo" style="font-size:12px;color:#bba7b5">Voice: checking browser voices…</p>
-<div class="log" id="log" aria-live="polite"></div>
+<div class="voice-panel">
+<label for="voiceSelect">Voice</label><select id="voiceSelect"><option value="">Loading available voices…</option></select>
+<label for="rate">Speech speed <output id="rateValue">0.83×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.83">
+<label for="pitch">Voice pitch <output id="pitchValue">0.65</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.65">
+<button class="secondary" id="preset">Reset eerie voice preset</button>
+</div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
 <script>
@@ -34,7 +43,22 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
 let recognition=null,active=false,speaking=false,chosenVoice=null;
 const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
-function loadVoices(){if(!window.speechSynthesis){voiceInfo.textContent="Speech synthesis is unavailable in this browser.";return;}const voices=speechSynthesis.getVoices();chosenVoice=voices.find(v=>v.lang.toLowerCase().startsWith("en")&&v.localService)||voices.find(v=>v.lang.toLowerCase().startsWith("en"))||voices[0]||null;voiceInfo.textContent=chosenVoice?"Voice: "+chosenVoice.name+" ("+chosenVoice.lang+")":"No voice loaded yet. Try clicking Test voice.";}
+const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate");
+function loadVoices(){
+ if(!window.speechSynthesis){voiceInfo.textContent="Speech synthesis unavailable.";return;}
+ const voices=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith("en"));
+ if(!voices.length){voiceInfo.textContent="No English voice loaded yet.";return;}
+ const previous=voiceSelect.value;
+ voiceSelect.replaceChildren();
+ for(const v of voices){const o=document.createElement("option");o.value=v.voiceURI;o.textContent=v.name+" ("+v.lang+")";voiceSelect.appendChild(o);}
+ const defaultVoice=voices.find(v=>/david|mark|guy|ryan|daniel|george|male|english.*(united kingdom|british)/i.test(v.name))||voices.find(v=>v.localService)||voices[0];
+ voiceSelect.value=voices.some(v=>v.voiceURI===previous)?previous:defaultVoice.voiceURI;
+ chosenVoice=voices.find(v=>v.voiceURI===voiceSelect.value)||defaultVoice;
+ voiceInfo.textContent="Selected voice: "+chosenVoice.name;
+}
+voiceSelect.addEventListener("change",()=>{chosenVoice=speechSynthesis.getVoices().find(v=>v.voiceURI===voiceSelect.value)||null;voiceInfo.textContent=chosenVoice?"Selected voice: "+chosenVoice.name:"Using default voice"});
+for(const id of ["rate","pitch"]){const el=document.getElementById(id),out=document.getElementById(id+"Value");el.addEventListener("input",()=>out.textContent=el.value+(id==="rate"?"×":""));}
+document.querySelector("#preset").onclick=()=>{rate.value="0.83";pitch.value="0.65";document.querySelector("#rateValue").textContent="0.83×";document.querySelector("#pitchValue").textContent="0.65";};
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
 function reply(t){const x=t.toLowerCase();
@@ -49,7 +73,7 @@ function say(t,fromTest=false){
 if(!fromTest)add("MERCY",t);
 if(!window.speechSynthesis){status.textContent="Speech output unsupported by this browser.";return;}
 try{
-  loadVoices();
+  if(!chosenVoice)loadVoices();
   speaking=true;
   // Stop microphone recognition so the synthesizer doesn't hear itself.
   if(recognition)try{recognition.abort();}catch(e){}
@@ -57,7 +81,7 @@ try{
   const u=new SpeechSynthesisUtterance(t);
   if(chosenVoice)u.voice=chosenVoice;
   u.lang=chosenVoice?.lang||"en-US";
-  u.volume=1;u.rate=0.9;u.pitch=0.85;
+  u.volume=1;u.rate=Number(rate.value);u.pitch=Number(pitch.value);
   u.onstart=()=>{status.textContent="Speaking through: "+(u.voice?.name||"default voice");};
   u.onend=()=>{speaking=false;if(active)tryListen();else sync();};
   u.onerror=e=>{speaking=false;status.textContent="Voice error: "+e.error+". Try another browser or check system audio.";};
@@ -73,7 +97,7 @@ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcrip
 recognition.onend=()=>{if(active&&!speaking)tryListen();else sync()};
 recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;status.textContent="Microphone blocked or unavailable. Check browser permissions.";sync()}else status.textContent="Speech error: "+e.error;};
 }
-testVoice.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}start.disabled=false;stop.disabled=true;say("Hello. I am Mercy. Can you hear me?",true)};
+testVoice.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}start.disabled=false;stop.disabled=true;say("I am Mercy. You should not have awakened me.",true)};
 start.onclick=()=>{active=true;sync();tryListen()};
 stop.onclick=()=>{active=false;try{recognition?.stop()}catch(e){}speechSynthesis?.cancel();speaking=false;sync()};
 sync();
