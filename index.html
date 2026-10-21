@@ -29,6 +29,8 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <button id="start">Start listening</button>
 <button class="secondary" id="stop" disabled>Stop</button>
 <button class="secondary" id="testVoice">Hear Mercy's monologue</button>
+<button class="secondary" id="laugh">Hear Mercy laugh</button>
+<p id="emotionStatus" style="font-size:12px;color:#ddafca" aria-live="polite">Expression: Watchful</p>
 <p id="voiceInfo" style="font-size:12px;color:#bba7b5">Loading voice…</p>
 <div class="panel">
 <p class="mode">HAUNTING · MERCY'S ORIGINAL VOICE</p>
@@ -40,6 +42,7 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <label for="customPhrase">Test your own phrase</label>
 <textarea id="customPhrase" maxlength="500" placeholder="What should Mercy say?"></textarea>
 <button class="secondary" id="testCustom">Speak phrase</button>
+<p style="font-size:12px;color:#bba7b5">Try saying: “I'm scared”, “I missed you”, “I hate you”, or “make me laugh”.</p>
 </div>
 <div class="log" id="log" aria-live="polite"></div>
 <footer>No effects or tab sharing required. Microphone recognition may use your browser provider. Conversational AI is not yet connected.</footer>
@@ -50,6 +53,46 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
 const rate=document.querySelector("#rate"),pitch=document.querySelector("#pitch"),voiceInfo=document.querySelector("#voiceInfo");
 let recognition=null,active=false,speaking=false,chosenVoice=null,speechRun=0;
+let expression="watchful",laughTimeout=null,laughSources=[];
+const expressionStatus=document.querySelector("#emotionStatus");
+const expressions={
+ watchful:{rate:1,pitch:1,label:"Watchful"},
+ tender:{rate:.92,pitch:1.12,label:"Tender"},
+ sorrowful:{rate:.86,pitch:.95,label:"Sorrowful"},
+ offended:{rate:1.09,pitch:.90,label:"Offended"},
+ amused:{rate:1.02,pitch:1.15,label:"Amused"},
+ uneasy:{rate:1.08,pitch:1.2,label:"Uneasy"}
+};
+function setExpression(name){expression=expressions[name]?name:"watchful";expressionStatus.textContent="Expression: "+expressions[expression].label;}
+function stopLaugh(){
+ if(laughTimeout!==null){clearTimeout(laughTimeout);laughTimeout=null;}
+ for(const o of laughSources)try{o.stop()}catch(e){}
+ laughSources=[];
+}
+function playLaugh(){
+ active=false;cancelSpeech();setExpression("amused");sync();
+ const AC=window.AudioContext||window.webkitAudioContext;
+ if(!AC){say("How amusing.",true);return;}
+ try{
+  const ctx=new AC();ctx.resume().catch(()=>{});
+  const now=ctx.currentTime+.04;
+  [0,.2,.44,.72,.98,1.25].forEach((offset,i)=>{
+   const at=now+offset,duration=i<2?.16:.22;
+   const osc=ctx.createOscillator(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+   osc.type="sawtooth";
+   osc.frequency.setValueAtTime(142+(i%2)*12,at);
+   osc.frequency.exponentialRampToValueAtTime(94+(i%2)*8,at+duration);
+   filter.type="bandpass";filter.frequency.value=680+(i%3)*140;filter.Q.value=.7;
+   gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(.065,at+.04);
+   gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+   osc.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+   osc.start(at);osc.stop(at+duration);laughSources.push(osc);
+  });
+  const ticket=speechRun;speaking=true;status.textContent="Mercy laughs…";
+  laughTimeout=setTimeout(()=>{if(ticket!==speechRun)return;laughTimeout=null;say("Oh. How delightfully unfortunate.",true);ctx.close().catch(()=>{});},1850);
+ }catch(e){say("Oh. How amusing.",true);}
+}
+
 const preferredVoiceName="Google UK English Male";
 const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
 function loadVoices(){
@@ -69,7 +112,15 @@ for(const el of [rate,pitch])el.addEventListener("input",()=>{labels();save();})
 document.querySelector("#preset").onclick=()=>{rate.value="0.75";pitch.value="0.45";labels();save();};
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
-function reply(t){const x=t.toLowerCase();
+function reply(t){
+ const x=t.toLowerCase();
+ if(/(make me laugh|laugh|chuckle)/.test(x)){playLaugh();return null;}
+ if(/(i am scared|i'm scared|afraid|frightened|anxious|sad|crying)/.test(x)){setExpression("tender");return "You need not hide your fear from me. I will listen.";}
+ if(/(missed you|miss you|love you|thank you|care about you)/.test(x)){setExpression("tender");return "Such warmth. I had almost forgotten its sound.";}
+ if(/(hate you|shut up|stupid|idiot)/.test(x)){setExpression("offended");return "Careful, wanderer. Words leave shadows behind them.";}
+ if(/(are you lonely|are you sad|why are you sad)/.test(x)){setExpression("sorrowful");return "Once there were voices in these halls. Now there is only their memory.";}
+ if(/(danger|something is coming|help me)/.test(x)){setExpression("uneasy");return "Something troubles you. Tell me what has happened.";}
+ setExpression("watchful");
  if(/(goodbye|stop listening|go to sleep)/.test(x)){active=false;return "Until we meet again.";}
  if(/(who are you|your name)/.test(x))return "My name is Mercy. I hear you.";
  if(/(hello|hey|hi mercy)/.test(x))return "Hello. You found me.";
@@ -81,7 +132,7 @@ function sync(){
  start.disabled=active||!SR;stop.disabled=!active&&!speaking;
  status.textContent=!SR?"Speech recognition unavailable; try Chrome or Edge.":speaking?"Mercy is speaking…":active?"Listening…":"Microphone stopped.";
 }
-function cancelSpeech(){speechRun++;try{speechSynthesis.cancel()}catch(e){}speaking=false;}
+function cancelSpeech(){stopLaugh();speechRun++;try{speechSynthesis.cancel()}catch(e){}speaking=false;}
 function listen(){if(!active||speaking||!recognition)return;try{recognition.start();status.textContent="Listening…";}catch(e){}}
 function say(text,test=false){
  if(!test)add("MERCY",text);
@@ -90,7 +141,10 @@ function say(text,test=false){
  cancelSpeech();const run=++speechRun;speaking=true;try{recognition?.abort()}catch(e){}
  const u=new SpeechSynthesisUtterance(text);
  if(chosenVoice)u.voice=chosenVoice;
- u.lang=chosenVoice?.lang||"en-GB";u.rate=Number(rate.value);u.pitch=Number(pitch.value);u.volume=1;
+ const style=expressions[expression]||expressions.watchful;
+ u.lang=chosenVoice?.lang||"en-GB";
+ u.rate=Math.max(.5,Math.min(1.5,Number(rate.value)*style.rate));
+ u.pitch=Math.max(.25,Math.min(1.6,Number(pitch.value)*style.pitch));u.volume=1;
  u.onstart=()=>{if(run===speechRun)status.textContent="Mercy is speaking…";};
  u.onend=()=>{if(run!==speechRun)return;speaking=false;if(active)listen();else sync();};
  u.onerror=e=>{if(run!==speechRun||e.error==="canceled"||e.error==="interrupted")return;speaking=false;status.textContent="Voice error: "+e.error;};
@@ -98,12 +152,13 @@ function say(text,test=false){
 }
 if(SR){
  recognition=new SR();recognition.lang="en-US";recognition.continuous=false;recognition.interimResults=false;
- recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(!phrase)return;add("YOU",phrase);say(reply(phrase));};
+ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(!phrase)return;add("YOU",phrase);const answer=reply(phrase);if(answer!==null)say(answer);};
  recognition.onend=()=>{if(active&&!speaking)listen();else sync();};
  recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;sync();status.textContent="Microphone permission denied or device unavailable.";}};
 }
 document.querySelector("#testVoice").onclick=()=>{active=false;say(testMonologue,true);};
 document.querySelector("#testCustom").onclick=()=>{const t=document.querySelector("#customPhrase").value.trim();if(t){active=false;say(t,true);}else status.textContent="Enter a phrase first.";};
+document.querySelector("#laugh").onclick=playLaugh;
 start.onclick=()=>{cancelSpeech();active=true;sync();listen();};
 stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync();};
 sync();
