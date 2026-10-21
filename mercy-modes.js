@@ -55,11 +55,31 @@ function clean(value){
  result=result.replace(/<\|[^>]+\|>/g,"").replace(/^(?:assistant|Mercy)\s*:\s*/i,"").trim();
  return result.slice(0,620);
 }
+async function workerResponds(){
+ const worker=navigator.serviceWorker?.controller;
+ if(!worker)return false;
+ return await new Promise(resolve=>{
+  const channel=new MessageChannel();
+  const timeout=setTimeout(()=>{channel.port1.close();resolve(false);},1200);
+  channel.port1.onmessage=event=>{
+   clearTimeout(timeout);channel.port1.close();
+   resolve(event.data?.version===4);
+  };
+  try{worker.postMessage({type:"MERCY_WORKER_VERSION"},[channel.port2]);}
+  catch(e){clearTimeout(timeout);resolve(false);}
+ });
+}
 async function waitForWorker(){
  if(!("serviceWorker" in navigator))return false;
  try{
-  await Promise.race([navigator.serviceWorker.ready,new Promise(resolve=>setTimeout(resolve,3500))]);
-  return Boolean(navigator.serviceWorker.controller);
+  await Promise.race([navigator.serviceWorker.ready,new Promise(resolve=>setTimeout(resolve,4500))]);
+  if(await workerResponds())return true;
+  await new Promise(resolve=>{
+   const wake=()=>{clearTimeout(timeout);navigator.serviceWorker.removeEventListener("controllerchange",wake);resolve();};
+   const timeout=setTimeout(wake,5500);
+   navigator.serviceWorker.addEventListener("controllerchange",wake);
+  });
+  return await workerResponds();
  }catch(e){return false;}
 }
 async function load(report){
@@ -73,17 +93,18 @@ async function load(report){
    // GitHub Pages assets take priority. Until the action uploads them,
    // use the identical upstream Apache-2.0 model, without a manual button.
    const modelManifest=await fetch(new URL("manifest.json",MODEL_DIR).href,{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null);
-   if(modelManifest?.model===MODEL&&Array.isArray(modelManifest.parts)){
-    const controlled=await waitForWorker();
-    if(!controlled)throw Error("Offline model service worker is not active; reload once.");
+   const controlled=modelManifest?.model===MODEL&&Array.isArray(modelManifest.parts)&&await waitForWorker();
+   if(controlled){
     env.allowLocalModels=true;
     env.allowRemoteModels=false;
     env.localModelPath=BASE_DIR.href;
     source="GitHub Pages";
    }else{
+    // If a previous service worker is still activating, use the same
+    // open-source weights upstream so the conversation never relies on scripts.
     env.allowRemoteModels=true;
     env.allowLocalModels=false;
-    source="upstream model host (GitHub upload pending)";
+    source="public upstream model host";
    }
    state="Loading Mercy's AI from "+source+"…";report?.(state);
    generator=await pipeline("text-generation",MODEL,{
