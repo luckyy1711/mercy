@@ -152,14 +152,35 @@ test("v4 motor simulator rejects unarmed, oversized, fast, and dangerous motion"
 
 test("v4 stale hardware acknowledgments cannot change simulator state",async()=>{
  let finish;
- const robot=E.create({transport:{send:()=>new Promise(r=>{finish=r;})},
-  hardwareEnabled:true});
+ const commands=[];
+ const robot=E.create({transport:{send:packet=>{
+  commands.push(packet.type);
+  return packet.type==="move"?new Promise(r=>{finish=r;}):Promise.resolve({ok:true});
+ }},hardwareEnabled:true});
  robot.arm();
  const moving=robot.command("jaw",5);
  robot.disarm();
  finish({ok:true});
  assert.equal((await moving).ok,false);
  assert.equal(robot.state().position.jaw,0);
+ assert.deepEqual(commands,["move","stop"]);
+});
+
+test("v4 unresponsive transport times out and emergency-stops",async()=>{
+ const commands=[];
+ const robot=E.create({
+  transport:{send:packet=>{
+   commands.push(packet.type);
+   if(packet.type==="move")return new Promise(()=>{});
+   return Promise.resolve({ok:true});
+  }},
+  hardwareEnabled:true,ackTimeoutMs:200
+ });
+ assert.equal(robot.arm(),true);
+ const result=await robot.command("jaw",5);
+ assert.equal(result.ok,false);
+ assert.equal(robot.state().emergency,true);
+ assert.deepEqual(commands,["move","estop"]);
 });
 
 test("v5 supervisor uses opt-in and one-shot curiosity",()=>{
