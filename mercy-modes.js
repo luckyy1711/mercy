@@ -57,23 +57,35 @@ function chatHistory(user,reply){
  while(history.length>12)history.shift();
 }
 function queryFrom(text){
- let q=strip(text);
- q=q.replace(/^(?:mercy[, ]+)?(?:please )?(?:tell me (?:about|what|who|why|how)|what (?:is|are|was|were)|who (?:is|was|are)|explain|search(?: the web)?(?: for)?|look up|find out about|give me facts about)\s+/i,"");
+ let q=strip(text).replace(/^(?:mercy[, ]+)?(?:please )?/i,"");
+ q=q.replace(/^(?:can you )?(?:tell me about|tell me what|tell me who|explain(?: to me)?|search(?: the web)?(?: for)?|look up|find out about|give me facts about|what is|what are|what was|what were|who is|who was|where is|when was|why is|how does|how do|history of)\s+/i,"");
  q=q.replace(/[?!.,]+$/,"").slice(0,110).trim();
- return q||strip(text).slice(0,110);
+ return q;
 }
-function wantsSearch(t){
- return /(?:\?|\b(?:search|look up|who is|what is|what are|where is|when was|why is|how does|tell me about|explain|facts about|history of)\b)/i.test(t);
+function wantsSearch(text){
+ const t=strip(text).toLowerCase().replace(/[!?.,]+$/,"").trim();
+ if(t.length<7||t.split(/\s+/).length<2)return false;
+ // A question mark alone does not imply research. Casual exchanges stay conversational.
+ if(/^(?:yo|hey|hi|hello|sup|what|what's up|whats up|how are you|you there|really|why|huh|ok|okay|yes|no|lol|thanks|thank you|who are you|what's your name|what is your name|what did you mean|what do you mean|how do you feel|are you okay|can you hear me|tell me a joke)[?!. ]*$/.test(t))return false;
+ if(/^(?:i |i'm |im |my |you |we |let's |lets |thank |sorry |good |bad |nice |haha|lol|make me |do you |are you |can you )/.test(t))return false;
+ return /^(?:what (?:is|are|was|were) .+|who (?:is|was|are|were) .+|where (?:is|are|was|were) .+|when (?:was|did|is) .+|why (?:is|are|does|do|did) .+|how (?:does|do|did|is) .+|tell me about .+|explain .+|search(?: the web)?(?: for)? .+|look up .+|find out about .+|give me facts about .+|history of .+)$/.test(t);
 }
 async function wikiLookup(query,signal){
  const url=new URL("https://en.wikipedia.org/w/api.php");
- const params={action:"query",generator:"search",gsrsearch:query,gsrlimit:"3",prop:"extracts|info",inprop:"url",exintro:"1",explaintext:"1",exchars:"650",format:"json",origin:"*"};
+ const params={action:"query",generator:"search",gsrsearch:query,gsrlimit:"5",prop:"extracts|info|pageprops",ppprop:"disambiguation",inprop:"url",exintro:"1",explaintext:"1",exchars:"650",format:"json",origin:"*"};
  for(const [k,v] of Object.entries(params))url.searchParams.set(k,v);
  const response=await fetch(url.toString(),{signal,credentials:"omit",cache:"no-store"});
  if(!response.ok)throw new Error("Search unavailable");
  const json=await response.json();
  const pages=Object.values(json?.query?.pages||{}).sort((a,b)=>(a.index||99)-(b.index||99));
- const p=pages.find(p=>typeof p.extract==="string"&&p.extract.trim().length>55);
+ const p=pages.find(p=>{
+  if(typeof p.extract!=="string"||p.extract.trim().length<55)return false;
+  if(p.pageprops?.disambiguation!==undefined)return false;
+  if(/\b(?:may also refer to|most often refers to|may refer to|can refer to)\s*:/i.test(p.extract))return false;
+  if(/\(disambiguation\)/i.test(p.title))return false;
+  if(/^(what|who|why|how|yes|no|hello|hi|yo)$/i.test(p.title))return false;
+  return true;
+ });
  if(!p)return null;
  const title=strip(p.title),extract=strip(p.extract);
  return {title,extract,url:p.fullurl||"https://en.wikipedia.org/wiki/"+encodeURIComponent(title.replace(/ /g,"_"))};
