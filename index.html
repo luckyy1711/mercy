@@ -40,10 +40,14 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <input id="reverb" type="range" min="0" max="60" step="5" value="25">
 <button class="secondary" id="enableReverb" type="button">Enable real voice reverb</button>
 <p id="reverbStatus" style="font-size:12px;color:#bba7b5;margin:0">Off. Desktop Chrome/Edge: select “This Tab” and enable “Also share tab audio” when prompted.</p>
+<label for="breath">Breathy atmosphere <output id="breathValue">15%</output></label><input id="breath" type="range" min="0" max="100" step="5" value="15">
+<label for="whisper">Whisper-like delivery <output id="whisperValue">20%</output></label><input id="whisper" type="range" min="0" max="100" step="5" value="20">
+<label for="texture">Grit / vocal texture <output id="textureValue">0%</output></label><input id="texture" type="range" min="0" max="60" step="5" value="0">
+<button class="secondary" id="laugh" type="button">Hear Mercy laugh</button>
 <button class="secondary" id="preset">Reset haunting voice</button>
 <label for="customPhrase">Test with your own words</label><textarea id="customPhrase" rows="3" maxlength="500" placeholder="Write a line for Mercy to speak…" aria-label="Custom test phrase"></textarea>
 <button class="secondary" id="testCustom">Speak custom phrase</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">Only the original Haunting character remains. Tune the speed, pitch, loudness and optional echo. Real reverb requires tab-audio sharing on compatible desktop browsers.</p>
+<p style="font-size:12px;color:#af9fad;text-align:left">Haunting is Mercy’s only personality. Breathy atmosphere adds a soft synthesized exhale. Whisper-like delivery changes pitch, speed and volume—not true whisper synthesis. Grit and reverb process captured tab audio only; enable reverb to hear grit.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -56,6 +60,28 @@ const preferredVoiceName="Google UK English Male";
 let speechRun=0;
 const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
 const pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),volume=document.querySelector("#volume");
+const breath=document.querySelector("#breath"),whisper=document.querySelector("#whisper"),texture=document.querySelector("#texture");
+let breathCtx=null,breathCleanup=null;
+function stopBreath(){
+ if(breathCleanup){breathCleanup();breathCleanup=null;}
+}
+function playExhale(){
+ const intensity=Number(breath.value)/100;
+ if(!intensity)return;
+ try{
+ const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+ breathCtx=breathCtx||new AC();breathCtx.resume().catch(()=>{});
+ const ctx=breathCtx,len=Math.floor(ctx.sampleRate*.95),buffer=ctx.createBuffer(1,len,ctx.sampleRate),data=buffer.getChannelData(0);
+ for(let i=0;i<len;i++)data[i]=Math.random()*2-1;
+ const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain(),now=ctx.currentTime;
+ src.buffer=buffer;filter.type="bandpass";filter.frequency.value=1050;filter.Q.value=.35;
+ gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(intensity*.055,now+.22);gain.gain.exponentialRampToValueAtTime(.0001,now+.9);
+ src.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+ src.start();src.stop(now+.95);
+ breathCleanup=()=>{try{src.stop()}catch(e){}try{src.disconnect();filter.disconnect();gain.disconnect()}catch(e){}};
+ src.onended=()=>{try{src.disconnect();filter.disconnect();gain.disconnect()}catch(e){}if(breathCleanup)breathCleanup=null;};
+ }catch(e){console.warn("Breath effect unavailable",e);}
+}
 const reverb=document.querySelector("#reverb"),reverbValue=document.querySelector("#reverbValue"),reverbStatus=document.querySelector("#reverbStatus"),enableReverb=document.querySelector("#enableReverb");
 let reverbStream=null,reverbContext=null,reverbNodes=null;
 function updateReverb(){
@@ -64,14 +90,21 @@ function updateReverb(){
   const wet=Number(reverb.value)/100;
   reverbNodes.wet1.gain.value=wet*.42;
   reverbNodes.wet2.gain.value=wet*.19;
+  reverbNodes.drive.curve=distortionCurve(Number(texture.value)/100);
+  reverbNodes.drive.oversample="2x";
  }
+}
+function distortionCurve(intensity){
+ const n=2048,curve=new Float32Array(n),k=intensity*65;
+ for(let i=0;i<n;i++){const x=(i/(n-1))*2-1;curve[i]=k===0?x:(1+k)*x/(1+k*Math.abs(x));}
+ return curve;
 }
 function disableReverb(){
  const stream=reverbStream;
  reverbStream=null;
  if(stream)for(const track of stream.getTracks())try{track.stop()}catch(e){}
  if(reverbNodes){
-  try{reverbNodes.source.disconnect();reverbNodes.delay1.disconnect();reverbNodes.delay2.disconnect();reverbNodes.wet1.disconnect();reverbNodes.wet2.disconnect()}catch(e){}
+  try{reverbNodes.source.disconnect();reverbNodes.delay1.disconnect();reverbNodes.delay2.disconnect();reverbNodes.wet1.disconnect();reverbNodes.wet2.disconnect();reverbNodes.drive.disconnect()}catch(e){}
   reverbNodes=null;
  }
  if(reverbContext){reverbContext.close().catch(()=>{});reverbContext=null;}
@@ -100,13 +133,13 @@ async function toggleReverb(){
   const source=ctx.createMediaStreamSource(stream);
   // Wet-only echoes: original TTS plays normally; the captured voice feeds quiet repeats.
   // Do not route the captured dry voice back to the speakers.
-  const delay1=ctx.createDelay(1),delay2=ctx.createDelay(1),wet1=ctx.createGain(),wet2=ctx.createGain();
+  const delay1=ctx.createDelay(1),delay2=ctx.createDelay(1),wet1=ctx.createGain(),wet2=ctx.createGain(),drive=ctx.createWaveShaper();
   delay1.delayTime.value=.19;delay2.delayTime.value=.43;
-  source.connect(delay1);source.connect(delay2);
+  source.connect(drive);drive.connect(delay1);drive.connect(delay2);
   delay1.connect(wet1);delay2.connect(wet2);
   wet1.connect(ctx.destination);wet2.connect(ctx.destination);
   reverbStream=stream;reverbContext=ctx;
-  reverbNodes={source,delay1,delay2,wet1,wet2};
+  reverbNodes={source,delay1,delay2,wet1,wet2,drive};
   updateReverb();
   enableReverb.textContent="Disable real voice reverb";
   reverbStatus.textContent="Reverb enabled for captured tab audio. Turn it off if echoes build up.";
@@ -119,18 +152,19 @@ async function toggleReverb(){
 enableReverb.addEventListener("click",toggleReverb);
 updateReverb();
 function saveVoicePrefs(){
- try{localStorage.setItem("mercyHauntingV1",JSON.stringify({rate:rate.value,pitch:pitch.value,volume:volume.value,reverb:reverb.value}));}catch(e){}
+ try{localStorage.setItem("mercyHauntingV1",JSON.stringify({rate:rate.value,pitch:pitch.value,volume:volume.value,reverb:reverb.value,breath:breath.value,whisper:whisper.value,texture:texture.value}));}catch(e){}
 }
 function updateLabels(){
  document.querySelector("#rateValue").textContent=rate.value+"×";
  document.querySelector("#pitchValue").textContent=pitch.value;
  document.querySelector("#volumeValue").textContent=volume.value+"%";
+ for(const id of ["breath","whisper","texture"])document.getElementById(id+"Value").textContent=document.getElementById(id).value+"%";
  updateReverb();
 }
 function restoreVoicePrefs(){
  try{
   const v=JSON.parse(localStorage.getItem("mercyHauntingV1")||"null");
-  if(v)for(const key of ["rate","pitch","volume","reverb"]){
+  if(v)for(const key of ["rate","pitch","volume","reverb","breath","whisper","texture"]){
    if(v[key]!==undefined)document.getElementById(key).value=v[key];
   }
   else{
@@ -141,6 +175,7 @@ function restoreVoicePrefs(){
  updateLabels();
 }
 function cancelSpeech(){
+ stopBreath();
  speechRun++;
  try{speechSynthesis.cancel()}catch(e){}
  speaking=false;
@@ -155,11 +190,11 @@ function loadVoices(){
  voiceInfo.textContent="Haunting voice · "+chosenVoice.name+" ("+chosenVoice.lang+")"
   +(chosenVoice.name!==preferredVoiceName?" · device fallback":"");
 }
-for(const id of ["rate","pitch","volume","reverb"]){
+for(const id of ["rate","pitch","volume","reverb","breath","whisper","texture"]){
  document.getElementById(id).addEventListener("input",()=>{updateLabels();saveVoicePrefs();});
 }
 document.querySelector("#preset").onclick=()=>{
- rate.value="0.75";pitch.value="0.45";volume.value="100";reverb.value="25";
+ rate.value="0.75";pitch.value="0.45";volume.value="100";reverb.value="25";breath.value="15";whisper.value="20";texture.value="0";
  updateLabels();saveVoicePrefs();
 };
 document.querySelector("#testCustom").onclick=()=>{
@@ -194,10 +229,11 @@ function say(t,fromTest=false){
  const utterance=new SpeechSynthesisUtterance(t);
  if(chosenVoice)utterance.voice=chosenVoice;
  utterance.lang=chosenVoice?.lang||"en-GB";
- utterance.volume=Number(volume.value)/100;
- utterance.rate=Number(rate.value);
- utterance.pitch=Number(pitch.value);
- utterance.onstart=()=>{if(thisRun===speechRun)status.textContent="Mercy is speaking…";};
+ const softness=Number(whisper.value)/100;
+ utterance.volume=Number(volume.value)/100*(1-softness*.42);
+ utterance.rate=Math.max(.5,Number(rate.value)*(1-softness*.14));
+ utterance.pitch=Math.max(.2,Number(pitch.value)-softness*.08);
+ utterance.onstart=()=>{if(thisRun===speechRun){status.textContent="Mercy is speaking…";playExhale();}};
  utterance.onend=()=>{
   if(thisRun!==speechRun)return;
   speaking=false;if(active)tryListen();else sync();
@@ -221,6 +257,13 @@ testVoice.onclick=()=>{
  active=false;try{recognition?.abort()}catch(e){}
  start.disabled=false;stop.disabled=false;
  say(testMonologue,true);
+};
+document.querySelector("#laugh").onclick=()=>{
+ active=false;try{recognition?.abort()}catch(e){}
+ start.disabled=false;stop.disabled=false;
+ // One natural-length speech utterance avoids the long resets between words.
+ // Actual actor-quality laughter needs a recorded/model-generated laugh.
+ say("Heh... heh heh... ah, ha ha ha... Oh. How delightfully unfortunate.",true);
 };
 start.onclick=()=>{cancelSpeech();active=true;sync();tryListen()};
 stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync()};
