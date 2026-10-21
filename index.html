@@ -93,15 +93,32 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 </main>
 <script src="mercy-modes.js"></script>
 <script src="presence.js"></script>
+<script src="autonomy.js"></script>
 <script>
 "use strict";
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
 const modelStatus=document.querySelector("#modelStatus"),loadButton=document.querySelector("#loadModel"),chatForm=document.querySelector("#chatForm"),chatInput=document.querySelector("#chatInput");
 const mindState=document.querySelector("#mindState"),clearMind=document.querySelector("#clearMind");
+const autonomyToggle=document.querySelector("#autonomyToggle"),autonomyState=document.querySelector("#autonomyState");
 const VOICE_RATE=0.75, VOICE_PITCH=0.45,preferredVoiceName="Google UK English Male";
 const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
 let recognition=null,active=false,speaking=false,chosenVoice=null,speechRun=0,replySequence=0,working=false,lastIssue="";
+let autoBusy=false,spontaneousSpeaking=false;
+const autonomy=window.MercyAutonomy.create({
+ canRun:()=>!working&&!speaking&&!lastIssue&&!!window.MercyModes?.status().ready&&!!window.speechSynthesis,
+ begin:generateSpontaneous,
+ onDisable:interruptSpontaneous,
+ onChange:info=>{
+  autonomyToggle.setAttribute("aria-pressed",String(info.enabled));
+  autonomyToggle.textContent=info.enabled?"Disable autonomous speech":"Enable autonomous speech";
+  autonomyState.textContent=!info.enabled?"Off · Mercy responds when spoken to.":
+   info.inFlight?"On · Mercy is forming a thought…":
+   info.paused?"On · Waiting for you to interact again.":
+   "On · Mercy may speak during quiet moments.";
+ }
+});
+autonomyToggle.onclick=()=>autonomy.toggle();
 try{
  // One-time removal of the old pattern database, including "hello darkness" rules.
  localStorage.removeItem("mercyReplyBrainV1");
@@ -130,15 +147,30 @@ function refreshMind(){
 function setModelStatus(message){modelStatus.textContent=message;}
 clearMind.onclick=()=>{
  if(!confirm("Clear Mercy's remembered conversations and identity observations from this browser?"))return;
- window.MercyModes?.reset();lastIssue="";refreshMind();
+ window.MercyModes?.reset();lastIssue="";autonomy.activity();refreshMind();
 };
 refreshMind();
+function setPresence(){
+ window.MercyPresence?.setState(document.hidden?"asleep":
+   speaking?"speaking":working?"thinking":active?"listening":"idle");
+}
+document.addEventListener("visibilitychange",setPresence);
 function cancelSpeech(){
  speechRun++;
  if(window.speechSynthesis)try{speechSynthesis.cancel()}catch(e){}
- speaking=false;
+ speaking=false;spontaneousSpeaking=false;setPresence();
+}
+function interruptSpontaneous(){
+ if(autoBusy){
+  replySequence++;
+  window.MercyModes?.cancelPending();
+  autoBusy=false;working=false;
+ }
+ if(spontaneousSpeaking)cancelSpeech();
+ sync();
 }
 function sync(){
+ setPresence();
  start.disabled=active||working||!SR;
  stop.disabled=!active&&!speaking&&!working;
  chatInput.disabled=working;
@@ -154,19 +186,19 @@ function listen(){
  if(!active||speaking||working||!recognition)return;
  try{recognition.start();status.textContent="Listening…";}catch(e){status.textContent="Preparing microphone…";}
 }
-function say(text,logReply=true){
+function say(text,logReply=true,spontaneous=false){
  if(logReply)add("MERCY",text);
  if(!window.speechSynthesis){status.textContent="Voice output isn't supported in this browser.";return;}
  if(!chosenVoice)loadVoices();
- cancelSpeech();const run=++speechRun;speaking=true;
+ cancelSpeech();spontaneousSpeaking=spontaneous;const run=++speechRun;speaking=true;setPresence();
  try{recognition?.abort()}catch(e){}
  const u=new SpeechSynthesisUtterance(text);
  if(chosenVoice)u.voice=chosenVoice;
  u.lang=chosenVoice?.lang||"en-GB";u.rate=VOICE_RATE;u.pitch=VOICE_PITCH;u.volume=1;
- u.onstart=()=>{if(run===speechRun)status.textContent="Mercy is speaking…";};
- u.onend=()=>{if(run!==speechRun)return;speaking=false;if(active)listen();else sync();};
- u.onerror=e=>{if(run!==speechRun||e.error==="canceled"||e.error==="interrupted")return;speaking=false;status.textContent="Voice error: "+e.error;};
- try{speechSynthesis.speak(u);sync();}catch(e){speaking=false;status.textContent="Voice error: "+e.message;}
+ u.onstart=()=>{if(run===speechRun){status.textContent="Mercy is speaking…";setPresence();}};
+ u.onend=()=>{if(run!==speechRun)return;speaking=false;spontaneousSpeaking=false;sync();if(active)listen();};
+ u.onerror=e=>{if(run!==speechRun||e.error==="canceled"||e.error==="interrupted")return;speaking=false;spontaneousSpeaking=false;lastIssue="Voice error: "+e.error;sync();};
+ try{speechSynthesis.speak(u);sync();}catch(e){speaking=false;spontaneousSpeaking=false;lastIssue="Voice error: "+e.message;sync();}
 }
 async function loadBrain(){
  if(!window.MercyModes)return false;
