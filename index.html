@@ -25,6 +25,16 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 .chat-form input:disabled,.chat-form button:disabled{opacity:.55;cursor:wait}
 .ai-panel summary{cursor:pointer;color:#ead8e4;font-weight:700}
 .log .system{color:#bba7b5}
+/* Cognitive lab keeps controls usable on small phones. */
+.cognitive-lab{max-width:560px}
+.cognitive-lab input[type="text"]{width:100%;min-width:0;padding:10px;margin:4px 0 11px;background:#211825;color:#f5e1ef;border:1px solid #70576a;border-radius:10px;font:inherit}
+.cognitive-lab label{display:block;color:#e4c3d7}
+.cognitive-lab .lab-actions{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0}
+.cognitive-lab .lab-actions button{font-size:12px;padding:10px 14px;margin:0}
+.cognitive-lab .lab-divider{height:1px;background:#57455b;margin:18px 0}
+.cognitive-lab video{max-width:100%;height:auto;border:1px solid #57455b;border-radius:12px;background:#050507}
+.cognitive-lab .lab-check{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin:9px 0}
+.cognitive-lab strong{font-size:14px}
 </style></head>
 <body><main>
 <small>VOICE PROTOTYPE</small>
@@ -89,8 +99,55 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <p id="mindState">No dialogue recorded yet.</p>
 <button class="secondary" id="clearMind" type="button">Clear Mercy's memory</button>
 </details>
+<details class="ai-panel cognitive-lab" id="cognitiveLab" style="text-align:left">
+<summary>Mercy Cognitive Lab · v2–v5</summary>
+<p>Local learning, careful questions, optional camera observations, virtual robotics and diagnostics. These are working early prototypes, not consciousness or a finished robotic brain.</p>
+<p id="cogStats" aria-live="polite">Cognition initializing…</p>
+<div class="lab-fields">
+<label for="cogSubject">Teach Mercy a fact about</label>
+<input id="cogSubject" maxlength="72" type="text" placeholder="skull material">
+<label for="cogValue">The value</label>
+<input id="cogValue" maxlength="200" type="text" placeholder="PLA">
+</div>
+<div class="lab-actions">
+<button id="cogLearn" type="button">Teach / correct</button>
+<button id="cogQuestion" type="button" class="secondary">Consider a question</button>
+<button id="cogTest" type="button" class="secondary">Run brain tests</button>
+</div>
+<p id="cogResult" role="status">Facts you teach are stored only in this browser. Say “remember that the skull material is PLA” in chat to teach naturally.</p>
+<div class="lab-divider"></div>
+<strong>Camera · v3</strong>
+<p>Off by default. Camera permission is requested only after you press Enable. This lightweight prototype detects lighting and scene changes, <em>not</em> objects, faces, or people.</p>
+<video id="cogPreview" width="260" height="195" muted playsinline autoplay aria-label="Private camera preview"></video>
+<p id="cogCameraState">Camera: off.</p>
+<p id="cogLastSense">No camera observations.</p>
+<label class="lab-check"><input id="cogStoreSensors" type="checkbox"> Save lighting/movement metadata to local cognitive memory</label>
+<div class="lab-actions"><button id="cogCamera" class="secondary" type="button">Enable camera</button></div>
+<div class="lab-divider"></div>
+<strong>Physical cognition · v4</strong>
+<p>Virtual motor simulator only. No ESP32, servos or real-world devices are connected.</p>
+<p id="simState">Simulation initializing…</p>
+<div class="lab-actions">
+<button id="simArm" class="secondary" type="button">Arm simulation</button>
+<button id="simMove" class="secondary" type="button">Move virtual jaw</button>
+<button id="simEmergency" class="secondary" type="button">Emergency stop</button>
+<button id="simReset" class="secondary" type="button">Reset stop</button>
+</div>
+<div class="lab-divider"></div>
+<strong>Evaluation · v5</strong>
+<div class="lab-actions">
+<button id="cogExperiment" type="button" class="secondary">Propose an improvement experiment</button>
+<button id="cogExport" type="button" class="secondary">Export cognitive memory</button>
+<button id="cogClear" type="button" class="secondary">Clear cognitive memory</button>
+</div>
+</details>
 <footer>Speech uses the original Haunting browser voice. The model generates responses locally; its conversation history stays in this browser until cleared.</footer>
 </main>
+<script src="v2/cognition/engine.js"></script>
+<script src="v3/perception.js"></script>
+<script src="v4/embodiment.js"></script>
+<script src="v5/research.js"></script>
+<script src="mercy-cognition.js"></script>
 <script src="mercy-modes.js"></script>
 <script src="presence.js"></script>
 <script src="autonomy.js"></script>
@@ -110,6 +167,7 @@ const autonomy=window.MercyAutonomy.create({
  begin:generateSpontaneous,
  onDisable:interruptSpontaneous,
  onChange:info=>{
+  window.MercyBrain?.supervisor.setEnabled(info.enabled);
   autonomyToggle.setAttribute("aria-pressed",String(info.enabled));
   stop.disabled=!active&&!speaking&&!working&&!info.enabled;
   autonomyToggle.textContent=info.enabled?"Disable autonomous speech":"Enable autonomous speech";
@@ -143,12 +201,15 @@ function refreshMind(){
  if(!mind)return;
  mindState.textContent="Identity: "+mind.identity+". Recorded exchanges: "+mind.turns+
   (mind.name?". User's name: "+mind.name+".":"")+
-  ". Latest reflection: "+mind.reflection;
+  ". Latest reflection: "+mind.reflection+
+  (window.MercyBrain?". Cognitive facts: "+window.MercyBrain.cognition.stats().knownFacts+".":"");
 }
 function setModelStatus(message){modelStatus.textContent=message;}
 clearMind.onclick=()=>{
  if(!confirm("Clear Mercy's remembered conversations and identity observations from this browser?"))return;
- window.MercyModes?.reset();lastIssue="";autonomy.activity();refreshMind();
+ window.MercyModes?.reset();
+ window.MercyBrain?.cognition.clear();
+ lastIssue="";autonomy.activity();refreshMind();
 };
 refreshMind();
 function setPresence(){
@@ -320,4 +381,5 @@ if(SR){
 sync();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 void loadBrain();
-</script></body></html>
+</script>
+<script src="cognition-lab.js"></script></body></html>

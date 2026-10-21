@@ -1,6 +1,8 @@
 "use strict";
-const SHELL="mercy-shell-v8";
-const ASSETS=["./","./index.html","./mercy-modes.js","./presence.css","./presence.js","./autonomy.js"];
+const SHELL="mercy-shell-v9";
+const ASSETS=["./","./index.html","./mercy-modes.js","./presence.css","./presence.js","./autonomy.js",
+ "./mercy-cognition.js","./cognition-lab.js","./v2/cognition/engine.js","./v3/perception.js",
+ "./v4/embodiment.js","./v5/research.js"];
 // Support both archived lightweight assets and the upgraded dialogue model.
 const MODEL_RE=/\/models\/onnx-community\/SmolLM2-(?:135M|360M)-Instruct-ONNX\/onnx\/model_int8\.onnx$/;
 self.addEventListener("install",event=>{
@@ -9,7 +11,7 @@ self.addEventListener("install",event=>{
 });
 self.addEventListener("message",event=>{
  if(event.data?.type==="MERCY_WORKER_VERSION"){
-  event.ports?.[0]?.postMessage({version:7});
+  event.ports?.[0]?.postMessage({version:8});
  }
 });
 self.addEventListener("activate",event=>{
