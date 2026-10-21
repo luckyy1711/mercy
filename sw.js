@@ -1,5 +1,5 @@
 "use strict";
-const SHELL="mercy-shell-v6";
+const SHELL="mercy-shell-v7";
 const ASSETS=["./","./index.html","./mercy-modes.js","./presence.css","./presence.js","./autonomy.js"];
 const MODEL_END="/onnx-community/SmolLM2-135M-Instruct-ONNX/onnx/model_int8.onnx";
 self.addEventListener("install",event=>{
