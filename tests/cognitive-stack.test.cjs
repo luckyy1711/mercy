@@ -57,6 +57,10 @@ test("v2 evidence-supported transitive inference and bounded curiosity",()=>{
  assert.equal(plan.action,"ask");
  assert.equal(brain.markAsked(plan),true);
  assert.equal(brain.markAsked(plan),false);
+ const remaining=brain.chooseQuestion();
+ assert.equal(remaining.action,"ask");
+ assert.notEqual(remaining.subject,plan.subject);
+ assert.equal(brain.markAsked(remaining),true);
  assert.equal(brain.chooseQuestion().action,"silent");
  brain.clear();
  assert.equal(brain.stats().knownFacts,0);
