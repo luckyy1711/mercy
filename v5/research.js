@@ -48,8 +48,35 @@
 
   function createExperiments(options = {}) {
     const now = options.now ?? (() => Date.now());
+    const storage = options.storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    const key = "mercy-experiments-v5";
     const proposals = [];
     let counter = 0;
+
+    function valid(p) {
+      return p && Number.isSafeInteger(p.id) && p.id > 0 &&
+        ["proposed", "approved-for-testing", "rejected"].includes(p.status) &&
+        ["title", "hypothesis", "metric"].every(k => typeof p[k] === "string" &&
+          p[k].length > 2 && p[k].length <= 220) &&
+        Number.isFinite(p.estimatedCost) && p.estimatedCost >= 0 &&
+        p.estimatedCost <= 100 && Number.isFinite(p.createdAt);
+    }
+    try {
+      const raw = storage?.getItem(key);
+      if (raw && raw.length <= 50000) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.version === 5 && Array.isArray(parsed.proposals)) {
+          const retained = parsed.proposals.filter(valid).slice(-60);
+          proposals.push(...retained);
+          counter = Math.max(0, ...retained.map(p => p.id));
+        }
+      }
+    } catch (_) { /* Keep an empty in-memory ledger. */ }
+
+    function persist() {
+      try { storage?.setItem(key, JSON.stringify({version: 5, proposals})); }
+      catch (_) { /* Storage can be unavailable in private browsing. */ }
+    }
     function propose({title, hypothesis, metric, cost = 1} = {}) {
       if (![title, hypothesis, metric].every(s => typeof s === "string" &&
           s.trim().length > 2 && s.length <= 220) ||
@@ -60,17 +87,20 @@
         status: "proposed"};
       proposals.push(proposal);
       if (proposals.length > 60) proposals.shift();
+      persist();
       return {ok: true, proposal: {...proposal}};
     }
     function decide(id, accepted) {
       const item = proposals.find(p => p.id === id);
       if (!item || item.status !== "proposed") return false;
       item.status = accepted === true ? "approved-for-testing" : "rejected";
-      // Approval marks the experiment for HUMAN-controlled testing.
-      // This is not permission to rewrite code, deploy, or actuate anything.
+      persist();
+      // The label is NOT authorization to rewrite code or deploy.
       return true;
     }
-    return Object.freeze({propose, decide, list: () => proposals.map(p => ({...p}))});
+    function clear() { proposals.length = 0; counter = 0; persist(); }
+    return Object.freeze({propose, decide, clear,
+      list: () => proposals.map(p => ({...p}))});
   }
 
   function selfCheck(cognitionApi) {
