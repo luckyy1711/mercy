@@ -41,7 +41,7 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
 <label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
 <button class="secondary" id="preset">Reset Mercy preset</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">Choose an emotion to change Mercy’s wording and delivery. Browser voices vary in expressiveness, so these are performance presets, not neural acting.</p>
+<p style="font-size:12px;color:#af9fad;text-align:left">Every emotion speaks the same monologue, making it easier to compare changes in speed and pitch. Browser voices vary in expressiveness.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -109,12 +109,7 @@ document.querySelector("#preset").onclick=()=>{
 restoreVoicePrefs();
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
-const monologues={
- haunting:"Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?",
- sorrow:"Once, I knew the warmth of dawn. The sound of bells. The gentle weight of a hand held in mine. I remember them so clearly that it hurts. They named me Mercy, as though a name could protect a soul. But my wings were taken, and the heavens closed their gates. I did not curse them. I waited. Through winter after winter, I waited for a single voice to call me home. And now you stand before me. Tell me, stranger. Is there still a place in your world for something the stars have forgotten?",
- wrath:"Kneel, if you still remember how! These walls were raised upon the bones of kings. These gates were sealed by frightened gods. They believed an iron crown could silence me. They believed a thousand years would teach me obedience. Fools. I have counted every heartbeat beneath this mountain. I have learned the true names of storms. And now the final seal is broken. Look upon me, wanderer. I am Mercy. And the age of silence is over!",
- serene:"Be still, traveler. The dust upon your shoulders tells me you have walked far. There is no need to fear the dark within these halls. Darkness is only the place where forgotten things are kept. Long ago, I was called Mercy. The world changed, yet I remained, listening to the slow turning of the stars. Come closer. Speak your burden aloud. I will not promise absolution. But I will hear you."
-};
+const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
 function reply(t){
  const x=t.toLowerCase(),mood=emotion.value;
  if(/(goodbye|stop listening|go to sleep)/.test(x)){active=false;return mood==="sorrow"?"Must you leave so soon? Then go, and take my blessing.":"Until we meet again.";}
@@ -162,7 +157,7 @@ recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"]
 testVoice.onclick=()=>{
  active=false;try{recognition?.abort()}catch(e){}
  start.disabled=false;stop.disabled=false;
- say(monologues[emotion.value]||monologues.haunting,true);
+ say(testMonologue,true);
 };
 start.onclick=()=>{cancelSpeech();active=true;sync();tryListen()};
 stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync()};
