@@ -7,10 +7,11 @@ The web prototype and the original Arch Linux Python microphone prototype are **
 ## Browser prototype
 
 - Type a message or speak through a browser that supports Web Speech Recognition.
-- Replies come from **SmolLM2-135M-Instruct**, a tiny generative model running locally in the browser through Transformers.js / ONNX Runtime Web.
+- Replies come from **SmolLM2-360M-Instruct**, a small (roughly 363 MB int8 weights) generative model running locally in the browser through Transformers.js / ONNX Runtime Web.
 - The browser uses its own speech-synthesis voice to speak the generated text (original voice settings are fixed at 0.75× speed and 0.45 pitch).
 - The model starts automatically on page load. It is hosted in this GitHub repository under `models/`; the large ONNX file is split into chunks, which `sw.js` streams back as one file. Model data still **must transfer to each visitor's browser on first use**.
 - Conversation memory is stored in the visitor's browser using localStorage, not in GitHub or a server. **Clear Mercy's memory** clears this saved conversation.
+- The upgrade from the old 135M model keeps personal facts and archived conversation in the same browser, but starts a new short dialogue context for more relevant replies. A simple greeting intentionally excludes old questions from the generation prompt. Clearly unrelated model-generated greetings get one model-generated retry.
 - Mercy has a fictional identity and a conversation log, **not real or verified consciousness**.
 - An animated SVG skull provides eye tracking, occasional blinks, subtle head motion and a talking jaw. It is lightweight, runs on the device, and respects reduced-motion preferences.
 - **Autonomous speech is opt-in and off on every page load.** Press **Enable autonomous speech** to allow Mercy to generate his own short thought when the visitor has been idle for about 55 seconds. Remarks are at least 125 seconds apart and stop after three without fresh interaction. It never initiates in a hidden tab; disabling the mode or pressing Stop cancels spontaneous speech. A working local AI is required.
@@ -19,7 +20,7 @@ The web prototype and the original Arch Linux Python microphone prototype are **
 
 ### Browser limitations
 
-A 135M-parameter model is very small: it can hallucinate, repeat itself, misunderstand questions, or run slowly on older CPUs. Some devices cannot initialize the ONNX runtime or fit the model in memory. The site shows errors and provides a **Retry AI startup** button when loading fails. There is no API key or cloud AI endpoint. Internet connectivity itself does **not** enable web searching.
+A 360M-parameter model is still small: it can hallucinate, repeat itself, misunderstand questions, or run slowly on older CPUs. Some devices cannot initialize the ONNX runtime or fit the model in memory. The site shows errors and provides a **Retry AI startup** button when loading fails. There is no API key or cloud AI endpoint. Internet connectivity itself does **not** enable web searching.
 
 ### Architecture
 
@@ -37,7 +38,7 @@ sw.js streams the chunked ONNX model and caches the app shell
 
 `.github/workflows/vendor-mercy-model.yml` is an optional GitHub Actions job that fetches model assets from Hugging Face, splits the ONNX model into GitHub-compatible parts and commits them under `models/`. It runs on edits to that workflow or when manually dispatched, not on every page view. The pipeline and service worker must agree on the model ID and ONNX filename.
 
-All external model and library licenses remain in force. See `models/onnx-community/SmolLM2-135M-Instruct-ONNX/ATTRIBUTION.txt`.
+All external model and library licenses remain in force. See `models/onnx-community/SmolLM2-360M-Instruct-ONNX/ATTRIBUTION.txt`.
 
 ## Legacy Python prototype (optional)
 
@@ -71,7 +72,7 @@ node --check presence.js
 node --test tests/*.test.cjs
 ```
 
-The repository's CI workflow runs these tests and validates that the model manifest agrees with its committed chunks. A real browser smoke test is still required for speech synthesis, service worker interception and local ONNX inference.
+The repository's CI workflow runs these tests and validates that the model manifest agrees with its committed chunks. An optional `.github/workflows/model-smoke.yml` workflow reconstructs the hosted 360M model to test actual inference in GitHub Actions. A real browser smoke test is still required for speech synthesis, service worker interception and local ONNX inference.
 
 ## Future robotics work
 
