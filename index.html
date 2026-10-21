@@ -20,6 +20,8 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 .voice-panel select{width:100%;padding:10px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:9px}
 .voice-panel label{display:flex;justify-content:space-between;gap:12px;align-items:center}
 .voice-panel input{accent-color:#e5b6d2;min-width:170px}
+.voice-panel textarea{width:100%;min-height:70px;padding:12px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:9px;resize:vertical;font:inherit}
+.voice-panel .mode{color:#e5bad3;text-align:center;font-size:11px;letter-spacing:.18em;border-bottom:1px solid #564254;padding-bottom:12px}
 </style>
 </head>
 <body>
@@ -30,22 +32,18 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <p id="status" role="status">Press Start to activate the microphone.</p>
 <button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button><button class="secondary" id="testVoice">🪽 Hear Mercy’s monologue</button><p id="voiceInfo" style="font-size:12px;color:#bba7b5">Voice: checking browser voices…</p>
 <div class="voice-panel">
-<label for="voiceSelect">Voice</label><select id="voiceSelect"><option value="">Loading available voices…</option></select>
-<label for="emotion">Emotion</label>
-<select id="emotion">
-<option value="haunting">Haunting — quiet menace</option>
-<option value="sorrow">Sorrow — fallen angel</option>
-<option value="wrath">Wrath — awakened ruler</option>
-<option value="serene">Serene — divine and cold</option>
-</select>
+<p class="mode">HAUNTING · MERCY'S SIGNATURE VOICE</p>
 <label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
 <label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
+<label for="volume">Loudness <output id="volumeValue">100%</output></label><input id="volume" type="range" min="20" max="100" step="5" value="100">
 <label for="reverb">Voice reverb <output id="reverbValue">25%</output></label>
 <input id="reverb" type="range" min="0" max="60" step="5" value="25">
 <button class="secondary" id="enableReverb" type="button">Enable real voice reverb</button>
 <p id="reverbStatus" style="font-size:12px;color:#bba7b5;margin:0">Off. Desktop Chrome/Edge: select “This Tab” and enable “Also share tab audio” when prompted.</p>
-<button class="secondary" id="preset">Reset Mercy preset</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">Every emotion speaks the same monologue. Real reverb requires sharing this tab’s audio; it is not enabled automatically, and may be unavailable on phones.</p>
+<button class="secondary" id="preset">Reset haunting voice</button>
+<label for="customPhrase">Test with your own words</label><textarea id="customPhrase" rows="3" maxlength="500" placeholder="Write a line for Mercy to speak…" aria-label="Custom test phrase"></textarea>
+<button class="secondary" id="testCustom">Speak custom phrase</button>
+<p style="font-size:12px;color:#af9fad;text-align:left">Only the original Haunting character remains. Tune the speed, pitch, loudness and optional echo. Real reverb requires tab-audio sharing on compatible desktop browsers.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -57,7 +55,7 @@ let recognition=null,active=false,speaking=false,chosenVoice=null;
 const preferredVoiceName="Google UK English Male";
 let speechRun=0;
 const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
-const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),emotion=document.querySelector("#emotion");
+const pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),volume=document.querySelector("#volume");
 const reverb=document.querySelector("#reverb"),reverbValue=document.querySelector("#reverbValue"),reverbStatus=document.querySelector("#reverbStatus"),enableReverb=document.querySelector("#enableReverb");
 let reverbStream=null,reverbContext=null,reverbNodes=null;
 function updateReverb(){
@@ -119,19 +117,26 @@ async function toggleReverb(){
  }finally{enableReverb.disabled=false;}
 }
 enableReverb.addEventListener("click",toggleReverb);
-reverb.addEventListener("input",updateReverb);
 updateReverb();
 function saveVoicePrefs(){
- try{localStorage.setItem("mercyVoiceV4",JSON.stringify({voice:chosenVoice?.name||preferredVoiceName,rate:rate.value,pitch:pitch.value,emotion:emotion.value}));}catch(e){}
+ try{localStorage.setItem("mercyHauntingV1",JSON.stringify({rate:rate.value,pitch:pitch.value,volume:volume.value,reverb:reverb.value}));}catch(e){}
 }
 function updateLabels(){
  document.querySelector("#rateValue").textContent=rate.value+"×";
  document.querySelector("#pitchValue").textContent=pitch.value;
+ document.querySelector("#volumeValue").textContent=volume.value+"%";
+ updateReverb();
 }
 function restoreVoicePrefs(){
  try{
-  const v=JSON.parse(localStorage.getItem("mercyVoiceV4")||"null");
-  if(v){for(const key of ["rate","pitch"]){if(v[key]!==undefined)document.getElementById(key).value=v[key];}if(["haunting","sorrow","wrath","serene"].includes(v.emotion))emotion.value=v.emotion;}
+  const v=JSON.parse(localStorage.getItem("mercyHauntingV1")||"null");
+  if(v)for(const key of ["rate","pitch","volume","reverb"]){
+   if(v[key]!==undefined)document.getElementById(key).value=v[key];
+  }
+  else{
+   const old=JSON.parse(localStorage.getItem("mercyVoiceV4")||"null");
+   if(old){if(old.rate!==undefined)rate.value=old.rate;if(old.pitch!==undefined)pitch.value=old.pitch;}
+  }
  }catch(e){}
  updateLabels();
 }
@@ -143,48 +148,39 @@ function cancelSpeech(){
 function loadVoices(){
  if(!window.speechSynthesis){voiceInfo.textContent="Speech synthesis unavailable.";return;}
  const voices=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith("en"));
- if(!voices.length){voiceInfo.textContent="No English voice loaded yet.";return;}
- const previous=voiceSelect.value;
- let savedName="";try{savedName=JSON.parse(localStorage.getItem("mercyVoiceV4")||"null")?.voice||""}catch(e){}
- voiceSelect.replaceChildren();
- for(const v of voices){const o=document.createElement("option");o.value=v.voiceURI;o.textContent=v.name+" ("+v.lang+")";voiceSelect.appendChild(o);}
- const defaultVoice=voices.find(v=>v.name===savedName)||voices.find(v=>v.name===preferredVoiceName)||voices.find(v=>/david|mark|guy|ryan|daniel|george|male|english.*(united kingdom|british)/i.test(v.name))||voices.find(v=>v.localService)||voices[0];
- voiceSelect.value=voices.some(v=>v.voiceURI===previous)?previous:defaultVoice.voiceURI;
- chosenVoice=voices.find(v=>v.voiceURI===voiceSelect.value)||defaultVoice;
- voiceInfo.textContent="Selected voice: "+chosenVoice.name;
+ if(!voices.length){voiceInfo.textContent="Waiting for browser voices…";return;}
+ chosenVoice=voices.find(v=>v.name===preferredVoiceName)
+   ||voices.find(v=>v.lang==="en-GB"&&/male|david|daniel|george|ryan/i.test(v.name))
+   ||voices.find(v=>v.lang==="en-GB")||voices[0];
+ voiceInfo.textContent="Haunting voice · "+chosenVoice.name+" ("+chosenVoice.lang+")"
+  +(chosenVoice.name!==preferredVoiceName?" · device fallback":"");
 }
-voiceSelect.addEventListener("change",()=>{chosenVoice=speechSynthesis.getVoices().find(v=>v.voiceURI===voiceSelect.value)||null;voiceInfo.textContent=chosenVoice?"Selected voice: "+chosenVoice.name:"Using default voice";saveVoicePrefs();});
-for(const id of ["rate","pitch"]){
+for(const id of ["rate","pitch","volume","reverb"]){
  document.getElementById(id).addEventListener("input",()=>{updateLabels();saveVoicePrefs();});
 }
-const emotionPresets={
- haunting:{rate:0.75,pitch:0.45},
- sorrow:{rate:0.7,pitch:0.65},
- wrath:{rate:0.9,pitch:0.5},
- serene:{rate:0.8,pitch:0.85}
-};
-emotion.addEventListener("change",()=>{
- const p=emotionPresets[emotion.value]||emotionPresets.haunting;
- rate.value=String(p.rate);pitch.value=String(p.pitch);updateLabels();saveVoicePrefs();
-});
 document.querySelector("#preset").onclick=()=>{
- emotion.value="haunting";rate.value="0.75";pitch.value="0.45";
- const pref=speechSynthesis?.getVoices().find(v=>v.name===preferredVoiceName);
- if(pref){voiceSelect.value=pref.voiceURI;chosenVoice=pref;}
- updateLabels();saveVoicePrefs();loadVoices();
+ rate.value="0.75";pitch.value="0.45";volume.value="100";reverb.value="25";
+ updateLabels();saveVoicePrefs();
+};
+document.querySelector("#testCustom").onclick=()=>{
+ const words=document.querySelector("#customPhrase").value.trim();
+ if(!words){status.textContent="Enter a phrase for Mercy first.";return;}
+ active=false;try{recognition?.abort()}catch(e){}
+ start.disabled=false;stop.disabled=false;
+ say(words,true);
 };
 restoreVoicePrefs();
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
 const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
 function reply(t){
- const x=t.toLowerCase(),mood=emotion.value;
- if(/(goodbye|stop listening|go to sleep)/.test(x)){active=false;return mood==="sorrow"?"Must you leave so soon? Then go, and take my blessing.":"Until we meet again.";}
- if(/(who are you|your name)/.test(x))return mood==="wrath"?"I am Mercy. Remember that name.":mood==="sorrow"?"I am Mercy. Or what remains of her.":"My name is Mercy. I hear you.";
- if(/(hello|hey|hi mercy)/.test(x))return mood==="serene"?"Welcome, traveler. You are heard.":mood==="sorrow"?"Oh. A voice. After all this time.":"Hello. You found me.";
- if(/(can you hear me)/.test(x))return mood==="wrath"?"Every single word.":"Every word.";
+ const x=t.toLowerCase();
+ if(/(goodbye|stop listening|go to sleep)/.test(x)){active=false;return "Until we meet again.";}
+ if(/(who are you|your name)/.test(x))return "My name is Mercy. I hear you.";
+ if(/(hello|hey|hi mercy)/.test(x))return "Hello. You found me.";
+ if(/(can you hear me)/.test(x))return "Every word.";
  if(/(what time|the time)/.test(x))return "It is "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+".";
- return mood==="sorrow"?"I hear you. I wish I understood more, but I am still learning.":mood==="wrath"?"Your words reach me. For now, I am still learning to answer.":mood==="serene"?"I have heard you. There is much I have yet to learn.":"I heard you say "+t+". I am still learning how to think.";
+ return "I heard you say "+t+". I am still learning how to think.";
 }
 function say(t,fromTest=false){
  if(!fromTest)add("MERCY",t);
@@ -198,7 +194,7 @@ function say(t,fromTest=false){
  const utterance=new SpeechSynthesisUtterance(t);
  if(chosenVoice)utterance.voice=chosenVoice;
  utterance.lang=chosenVoice?.lang||"en-GB";
- utterance.volume=1;
+ utterance.volume=Number(volume.value)/100;
  utterance.rate=Number(rate.value);
  utterance.pitch=Number(pitch.value);
  utterance.onstart=()=>{if(thisRun===speechRun)status.textContent="Mercy is speaking…";};
