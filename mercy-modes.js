@@ -31,6 +31,7 @@ function read(){
  }catch(e){return initial();}
 }
 let memory=read(),generator=null,loading=null,state="Preparing AI...",source="pending";
+let generationQueue=Promise.resolve(),memoryGeneration=0;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(memory));}catch(e){}}
 function noteUser(user){
  const clean=String(user).trim();
@@ -49,7 +50,7 @@ function remember(user,reply){
  save();
 }
 function status(){return {ready:!!generator,loading:!!loading,state,source,identity:memory.identity,turns:memory.turns,name:memory.name,reflection:memory.lastReflection};}
-function reset(){memory=initial();save();}
+function reset(){memoryGeneration++;memory=initial();save();}
 function clean(value){
  let result=String(value||"").trim();
  result=result.replace(/<\|[^>]+\|>/g,"").replace(/^(?:assistant|Mercy)\s*:\s*/i,"").trim();
@@ -125,26 +126,36 @@ async function load(report){
  })();
  return loading;
 }
-async function answer(user,report){
- if(!generator){if(!await load(report))return {error:"Local AI unavailable. Check the status and try again."};}
+function answer(user,report){
+ // Queue generation: the WASM pipeline is not safe to run concurrently.
+ const job=generationQueue.catch(()=>{}).then(()=>generateAnswer(user,report));
+ generationQueue=job.catch(()=>{});
+ return job;
+}
+async function generateAnswer(user,report){
+ const epoch=memoryGeneration;
+ if(!generator){
+  if(!await load(report))return {error:"Local AI unavailable. Check model status and try again."};
+ }
+ if(epoch!==memoryGeneration)return {cancelled:true};
  state="Writing a new answer…";report?.(state);
- const self="You are MERCY, a fictional ancient gothic guardian and an AI character. You can monitor your model state, record prior exchanges and examine your responses, but you are not known to be conscious or capable of subjective experience. Never pretend proven sentience. Respond directly to the latest user with original, specific language, concise dry sarcasm where fitting; don't always introduce yourself, don't sound like a search result. Be honest when uncertain. No markdown, stage directions or fake laughter noises.";
- const continuity=memory.name?"The user told you their name is "+memory.name+". ":"";
- const introspection="You have recorded "+memory.turns+" previous conversation turns. Your last logged reply: "+memory.lastReflection.slice(0,230)+".";
+ const self="You are MERCY, a fictional ancient gothic guardian and AI character. You can record and inspect prior exchanges, but you are not known to be conscious. Reply directly to the latest user in one or two coherent sentences. Be original and gently sarcastic where fitting, without routine dramatic introductions. Never invent personal memories. If uncertain, say so. No markdown, role labels or stage directions.";
+ const continuity=memory.name?"The user said their name is "+memory.name+". ":"";
  try{
   const messages=[
-   {role:"system",content:self+" "+continuity+introspection},
+   {role:"system",content:self+" "+continuity},
    ...memory.conversation.slice(-8),
    {role:"user",content:String(user).slice(0,500)}
   ];
   const output=await generator(messages,{
-   max_new_tokens:110,do_sample:true,temperature:.78,
+   max_new_tokens:100,do_sample:true,temperature:.7,
    repetition_penalty:1.16,return_full_text:false
   });
+  if(epoch!==memoryGeneration)return {cancelled:true};
   const generated=output?.[0]?.generated_text;
   const raw=Array.isArray(generated)?generated.at(-1)?.content:generated;
   const reply=clean(raw);
-  if(!reply){state="No reply generated";report?.(state);return {error:"The AI returned no answer."};}
+  if(!reply){state="No reply generated";report?.(state);return {error:"The model returned an empty reply."};}
   remember(user,reply);
   state="AI ready · "+source;report?.(state);
   return {text:reply};
