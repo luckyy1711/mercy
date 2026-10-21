@@ -69,7 +69,7 @@ async function workerResponds(){
   const timeout=setTimeout(()=>{channel.port1.close();resolve(false);},1200);
   channel.port1.onmessage=event=>{
    clearTimeout(timeout);channel.port1.close();
-   resolve(event.data?.version===5);
+   resolve(event.data?.version===6);
   };
   try{worker.postMessage({type:"MERCY_WORKER_VERSION"},[channel.port2]);}
   catch(e){clearTimeout(timeout);resolve(false);}
