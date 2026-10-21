@@ -208,6 +208,15 @@ test("v5 experiments cannot silently modify software; full diagnostic succeeds",
  assert.equal(lab.decide(item.proposal.id,true),true);
  assert.equal(lab.list()[0].status,"approved-for-testing");
  assert.equal(lab.decide(item.proposal.id,true),false);
+ const store=storage();
+ const one=R.createExperiments({storage:store});
+ one.propose({title:"Track uncertainty",hypothesis:"More evidence helps calibration",
+  metric:"Unseen calibration error",cost:3});
+ const reloaded=R.createExperiments({storage:store});
+ assert.equal(reloaded.list().length,1);
+ assert.equal(reloaded.list()[0].title,"Track uncertainty");
+ reloaded.clear();
+ assert.equal(R.createExperiments({storage:store}).list().length,0);
  const check=R.selfCheck(C);
  assert.equal(check.success,true,JSON.stringify(check.checks));
  assert.equal(check.passed,check.total);
