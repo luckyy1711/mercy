@@ -39,7 +39,7 @@ async function modelResponse(request){
      if(!reader){
       if(index>=manifest.parts.length){controller.close();return;}
       const part=manifest.parts[index++];
-      if(!/^model_int8\\.onnx\\.part\\d{2}$/.test(part))throw Error("Unsafe model part name");
+      if(!/^model_int8\.onnx\.part\d{2}$/.test(part))throw Error("Unsafe model part name");
       const url=new URL(part,base);
       let response;
       try{
