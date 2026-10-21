@@ -111,6 +111,7 @@ const autonomy=window.MercyAutonomy.create({
  onDisable:interruptSpontaneous,
  onChange:info=>{
   autonomyToggle.setAttribute("aria-pressed",String(info.enabled));
+  stop.disabled=!active&&!speaking&&!working&&!info.enabled;
   autonomyToggle.textContent=info.enabled?"Disable autonomous speech":"Enable autonomous speech";
   autonomyState.textContent=!info.enabled?"Off · Mercy responds when spoken to.":
    info.inFlight?"On · Mercy is forming a thought…":
@@ -175,7 +176,7 @@ function interruptSpontaneous(){
 function sync(){
  setPresence();
  start.disabled=active||working||!SR;
- stop.disabled=!active&&!speaking&&!working;
+ stop.disabled=!active&&!speaking&&!working&&!autonomy.info().enabled;
  chatInput.disabled=working;
  chatForm.querySelector("button").disabled=working;
  if(working)return;
