@@ -1,10 +1,15 @@
 "use strict";
-const SHELL="mercy-shell-v3";
+const SHELL="mercy-shell-v4";
 const ASSETS=["./","./index.html","./mercy-modes.js"];
 const MODEL_END="/onnx-community/SmolLM2-135M-Instruct-ONNX/onnx/model_int8.onnx";
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(SHELL).then(cache=>cache.addAll(ASSETS))
   .then(()=>self.skipWaiting()).catch(()=>{}));
+});
+self.addEventListener("message",event=>{
+ if(event.data?.type==="MERCY_WORKER_VERSION"){
+  event.ports?.[0]?.postMessage({version:4});
+ }
 });
 self.addEventListener("activate",event=>{
  event.waitUntil(Promise.all([
