@@ -137,12 +137,12 @@ function answer(user,report){
 // This is a memory lookup, not a scripted conversation or an invented identity.
 function isNameQuestion(input){
  const t=String(input).trim().toLowerCase();
- return /\\b(?:what(?:'s| is) my name|do you (?:know|remember) my name|tell me my name)\\b/.test(t);
+ return /\b(?:what(?:'s| is) my name|do you (?:know|remember) my name|tell me my name)\b/.test(t);
 }
 function wordLimit(input){
  const t=String(input).toLowerCase();
- const m=t.match(/\\b(?:in|using|with|exactly)\\s+(\\d{1,2})\\s*[-–]\\s*(\\d{1,2})\\s+words?\\b/)||
-         t.match(/\\b(?:in|using|with|exactly)\\s+(\\d{1,2})\\s+words?\\b/);
+ const m=t.match(/\b(?:in|using|with|exactly)\s+(\d{1,2})\s*[-–]\s*(\d{1,2})\s+words?\b/)||
+         t.match(/\b(?:in|using|with|exactly)\s+(\d{1,2})\s+words?\b/);
  if(!m)return null;
  const lo=Number(m[1]),hi=Number(m[2]||m[1]);
  return lo>0&&hi>=lo&&hi<=60?{lo,hi}:null;
@@ -154,7 +154,7 @@ function memoryAnswer(question){
   ?"You told me your name is "+memory.name+"."
   :"I don't know your name just yet.";
  if(limit){
-  const count=answer.trim().split(/\\s+/).length;
+  const count=answer.trim().split(/\s+/).length;
   if(count<limit.lo||count>limit.hi)return {text:answer,notice:"The requested word count conflicts with the available name information."};
  }
  return {text:answer};
