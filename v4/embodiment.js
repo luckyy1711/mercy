@@ -96,9 +96,10 @@
           let timeoutHandle;
           let acknowledged;
           try {
+            const sending = Promise.resolve(transport.send({type: "move", axis,
+              degrees: target, timeoutMs: ackTimeoutMs}));
             acknowledged = await Promise.race([
-              Promise.resolve().then(() => transport.send({type: "move", axis,
-                degrees: target, timeoutMs: ackTimeoutMs})),
+              sending,
               new Promise((_, reject) => {
                 timeoutHandle = setTimeout(() => reject(new Error("ack timeout")), ackTimeoutMs);
               })
