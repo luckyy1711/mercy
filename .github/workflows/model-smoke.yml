@@ -1,0 +1,59 @@
+name: MERCY real-model smoke test
+on:
+  push:
+    paths:
+      - ".github/workflows/model-smoke.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Assemble ONNX model from the GitHub-hosted parts
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path('models/onnx-community/SmolLM2-360M-Instruct-ONNX')
+          spec=json.loads((root/'manifest.json').read_text())
+          target=root/'onnx/model_int8.onnx'
+          with target.open('wb') as out:
+              for part in spec['parts']:
+                  with (root/'onnx'/part).open('rb') as inp:
+                      while chunk:=inp.read(4*1024*1024):
+                          out.write(chunk)
+          assert target.stat().st_size==spec['size']
+          print('Assembled model bytes:', target.stat().st_size)
+          PY
+      - name: Install browser model runtime for Node smoke test
+        run: npm install --no-save --no-audit --no-fund @huggingface/transformers@3.7.6
+      - name: Generate a real response to hello
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          node --input-type=module <<'JS'
+          import path from 'node:path';
+          import {pipeline,env} from '@huggingface/transformers';
+          env.allowLocalModels=true;
+          env.allowRemoteModels=false;
+          env.localModelPath=path.resolve('models')+path.sep;
+          const brain=await pipeline('text-generation','onnx-community/SmolLM2-360M-Instruct-ONNX',{dtype:'int8',device:'cpu'});
+          const messages=[
+            {role:'system',content:'You are Mercy, a gothic AI character. The visitor just greeted you. Greet them back warmly in one short natural sentence (under fifteen words), with a hint of dry wit. No explanations, old questions, or generic advice.'},
+            {role:'user',content:'hello'}
+          ];
+          const output=await brain(messages,{max_new_tokens:36,do_sample:false,repetition_penalty:1.1,return_full_text:false});
+          const generated=output?.[0]?.generated_text;
+          const reply=Array.isArray(generated)?generated.at(-1)?.content:generated;
+          console.log('REAL MODEL replied to hello:',JSON.stringify(reply));
+          if(!reply||reply.length>240||/what is my name|future questions|keep it in mind/i.test(reply))throw Error('Generated greeting is empty or visibly unrelated');
+          JS
