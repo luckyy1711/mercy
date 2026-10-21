@@ -1,5 +1,13 @@
 # MERCY
 
+## Project versions
+
+- **[v1 — Current application archive](v1/README.md):** source snapshots for the browser voice/chat app, animated skull, memory, local 360M model, and autonomous speech. For a **complete frozen v1 copy including all model weights**, use the [archive/v1.0 branch](https://github.com/luckyy1711/mercy/tree/archive/v1.0).
+- **[v2 — Cognition development](v2/README.md):** planned learning, curiosity, structured knowledge and decision-making system. It is *not implemented or deployed yet*.
+
+The live website remains at **[GitHub Pages](https://luckyy1711.github.io/mercy/)** and is still served from the **repository root**. Version folders archive or stage major milestones; don't rename or move the production root just to release a new version. Large model weight files are kept only once in root `models/` to avoid duplicating hundreds of megabytes in the Pages artifact. Visitor memories are kept locally in each browser and are not part of GitHub backups.
+
+
 MERCY is a gothic animatronic character prototype. The current experience is a **static browser voice/chat app** hosted at https://luckyy1711.github.io/mercy/.
 
 The web prototype and the original Arch Linux Python microphone prototype are **separate**. The web app does not use the Python files.

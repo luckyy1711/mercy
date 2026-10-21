@@ -1,0 +1,89 @@
+name: Vendor MERCY offline model
+on:
+  push:
+    paths:
+      - ".github/workflows/vendor-mercy-model.yml"
+  workflow_dispatch:
+concurrency:
+  group: vendor-mercy-model
+  cancel-in-progress: true
+permissions:
+  contents: write
+jobs:
+  vendor-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download Apache-2.0 model and split GitHub-sized chunks
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check "huggingface_hub[hf_xet]>=0.33,<2"
+          python - <<'PY'
+          from pathlib import Path
+          from huggingface_hub import snapshot_download
+          import hashlib, json, shutil
+          repo = "onnx-community/SmolLM2-360M-Instruct-ONNX"
+          prefix = Path("models") / repo
+          prefix.mkdir(parents=True, exist_ok=True)
+          names = [
+              "config.json", "generation_config.json",
+              "tokenizer.json", "tokenizer_config.json",
+              "special_tokens_map.json", "merges.txt", "vocab.json",
+              "onnx/model_int8.onnx"
+          ]
+          base = Path(snapshot_download(repo_id=repo, allow_patterns=names))
+          for name in names:
+              src = base / name
+              if not src.is_file():
+                  raise RuntimeError(f"Missing upstream model component: {name}")
+              if name.endswith(".onnx"):
+                  target = prefix / "onnx"
+                  target.mkdir(parents=True, exist_ok=True)
+                  digest = hashlib.sha256()
+                  parts = []
+                  with src.open("rb") as handle:
+                      n = 0
+                      while chunk := handle.read(58_000_000):
+                          digest.update(chunk)
+                          piece = target / f"model_int8.onnx.part{n:02d}"
+                          piece.write_bytes(chunk)
+                          parts.append(piece.name)
+                          n += 1
+                  (prefix / "manifest.json").write_text(json.dumps({
+                      "model": repo, "dtype": "int8",
+                      "size": src.stat().st_size, "sha256": digest.hexdigest(),
+                      "parts": parts
+                  }, indent=2))
+              else:
+                  dest = prefix / name
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(src, dest)
+          (prefix / "ATTRIBUTION.txt").write_text(
+              "SmolLM2-360M-Instruct: HuggingFaceTB, Apache License 2.0.\\n"
+              "ONNX conversion: onnx-community.\\n"
+              "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct\\n"
+              "https://huggingface.co/onnx-community/SmolLM2-360M-Instruct-ONNX\\n"
+              "https://www.apache.org/licenses/LICENSE-2.0\\n"
+          )
+          print("Vendored:", sorted(str(p) for p in prefix.rglob("*") if p.is_file()))
+          PY
+      - name: Commit model files to GitHub repository
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f models/onnx-community/SmolLM2-360M-Instruct-ONNX/
+          if git diff --cached --quiet; then
+            echo "Model files already present"
+          else
+            git commit -m "Vendor offline SmolLM2 model assets [skip ci]"
+            git fetch origin "${{ github.ref_name }}"
+            git rebase "origin/${{ github.ref_name }}"
+            git push origin HEAD:${{ github.ref_name }}
+          fi

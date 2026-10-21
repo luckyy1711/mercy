@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MERCY — Voice</title>
+<meta name="theme-color" content="#110e16">
+<link rel="stylesheet" href="presence.css">
+<style>
+:root{color-scheme:dark;font-family:system-ui,Segoe UI,sans-serif}
+*{box-sizing:border-box}body{min-height:100vh;display:grid;place-items:center;margin:0;background:radial-gradient(ellipse at 50% 25%,#2c1831 0%,#100e14 55%,#09090b 100%);color:#eee}
+main{width:min(92vw,650px);padding:32px;border:1px solid #57455b;background:#110e16df;border-radius:22px;text-align:center;box-shadow:0 20px 90px #0008}
+h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(50px,12vw,88px);letter-spacing:.14em;margin:10px 0;color:#eed8e6}
+small{color:#bba7b5;letter-spacing:.2em}p{line-height:1.6}
+button{background:#dcc2d1;color:#19101b;padding:13px 23px;border-radius:40px;border:0;cursor:pointer;font-weight:700;margin:7px}
+button.secondary{background:transparent;color:#ead8e4;border:1px solid #745a70}
+button:disabled{opacity:.45;cursor:not-allowed}
+#status{color:#d9a4c6;min-height:28px}
+.log{border:1px solid #46394b;background:#0b0a0ed0;text-align:left;border-radius:12px;padding:16px;min-height:110px;max-height:270px;overflow:auto;margin-top:20px;overflow-wrap:anywhere}
+.log p{margin:6px 0}.me{color:#c4b9ce}.mercy{color:#e4b8d0}
+footer{font-size:12px;color:#9b8e9c;margin-top:18px}
+.chat-form{display:flex;gap:9px;max-width:560px;margin:18px auto 4px}
+.chat-form input{flex:1;min-width:0;padding:14px 13px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:12px;font:inherit}
+.chat-form button{margin:0;border-radius:12px}
+.ai-panel{margin:16px auto;max-width:560px;border:1px solid #57455b;border-radius:12px;padding:14px;color:#cbb5c5;font-size:13px}
+.ai-panel p{line-height:1.45}
+.chat-form input:disabled,.chat-form button:disabled{opacity:.55;cursor:wait}
+.ai-panel summary{cursor:pointer;color:#ead8e4;font-weight:700}
+.log .system{color:#bba7b5}
+</style></head>
+<body><main>
+<small>VOICE PROTOTYPE</small>
+<h1>MERCY</h1>
+<div class="presence-stage" id="presence" data-state="idle" role="img" aria-label="Mercy's animated gothic skull with glowing, moving eyes">
+<svg class="presence-svg" viewBox="0 0 420 390" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<defs>
+ <linearGradient id="cloak" x2=".85" y2="1"><stop stop-color="#36233e"/><stop offset=".53" stop-color="#130f1c"/><stop offset="1" stop-color="#583455"/></linearGradient>
+ <linearGradient id="bone" x2=".85" y2="1"><stop stop-color="#efe5e8"/><stop offset=".5" stop-color="#c9b6c3"/><stop offset="1" stop-color="#8d7086"/></linearGradient>
+ <radialGradient id="iris"><stop stop-color="#fff5fa"/><stop offset=".35" stop-color="#e2a2dc"/><stop offset="1" stop-color="#843687"/></radialGradient>
+</defs>
+<g class="presence-halo" stroke="#a778ac" fill="none" stroke-width="1.2">
+ <ellipse cx="210" cy="184" rx="125" ry="148" stroke-dasharray="4 10"/>
+ <path d="M48 154 Q105 58 162 42 M258 42 Q315 58 372 154 M65 275 Q105 345 162 346 M258 346 Q315 345 355 275"/>
+</g>
+<path d="M111 227 Q68 205 23 299 Q86 262 127 328 M309 227 Q352 205 397 299 Q334 262 293 328" fill="#1f1727" stroke="#765379" stroke-width="2"/>
+<g class="presence-head">
+ <path d="M90 278 Q67 107 135 60 Q170 26 210 48 Q250 26 285 60 Q353 107 330 278 L354 350 Q298 329 270 378 L150 378 Q122 329 66 350Z" fill="url(#cloak)" stroke="#725477" stroke-width="3"/>
+ <path d="M152 81 L171 34 L191 69 L210 9 L230 69 L249 34 L268 81" fill="#32203a" stroke="#d5a7c4" stroke-width="3" stroke-linejoin="round"/>
+ <path d="M210 12 V59 M170 42 L185 72 M250 42 L235 72" stroke="#edcadc" stroke-opacity=".7" stroke-width="2"/>
+ <path d="M139 145 Q139 102 171 91 Q210 80 249 91 Q281 102 281 145 L295 207 Q289 249 247 283 L227 294 L193 294 L173 283 Q131 249 125 207Z" fill="url(#bone)" stroke="#6b4b63" stroke-width="3"/>
+ <path d="M154 159 Q176 135 197 158 Q176 182 152 175Z M266 159 Q244 135 223 158 Q244 182 268 175Z" fill="#1c1020" stroke="#8c667e" stroke-width="2"/>
+ <g class="presence-eye left"><ellipse class="presence-glow" cx="175" cy="162" rx="13" ry="10" fill="#bd60b8"/><g class="presence-pupil"><circle cx="175" cy="162" r="7" fill="url(#iris)"/><ellipse cx="175" cy="162" rx="2" ry="4" fill="#180d1b"/></g></g>
+ <g class="presence-eye right"><ellipse class="presence-glow" cx="245" cy="162" rx="13" ry="10" fill="#bd60b8"/><g class="presence-pupil"><circle cx="245" cy="162" r="7" fill="url(#iris)"/><ellipse cx="245" cy="162" rx="2" ry="4" fill="#180d1b"/></g></g>
+ <path d="M208 169 L193 220 Q210 232 227 220Z" fill="#362132" stroke="#876079" stroke-width="2"/>
+ <path d="M164 245 Q210 263 256 245 L246 267 Q210 276 174 267Z" fill="#402b3b"/>
+ <path d="M188 252 V265 M202 255 V268 M218 255 V268 M232 252 V265" stroke="#f2e0ec" stroke-width="3"/>
+ <g class="presence-jaw">
+  <path d="M164 277 Q210 299 256 277 L243 313 Q210 337 177 313Z" fill="#bda4b7" stroke="#65475e" stroke-width="3"/>
+  <path d="M177 287 Q210 302 243 287" stroke="#422a3a" stroke-width="5" fill="none"/>
+  <path d="M188 290 V300 M202 294 V306 M218 294 V306 M232 290 V300" stroke="#f0dce8" stroke-width="3"/>
+ </g>
+ <path d="M127 211 Q110 270 142 317 M293 211 Q310 270 278 317" stroke="#dba8c6" stroke-opacity=".24" stroke-width="4" fill="none"/>
+</g>
+</svg>
+<span class="presence-caption" id="presenceCaption">Watching</span>
+</div>
+<p id="status" role="status">Mercy is waking…</p>
+<button id="start">Start listening</button>
+<button class="secondary" id="stop">Stop voice</button>
+<button class="secondary" id="testVoice">Hear Mercy's monologue</button>
+<section class="ai-panel" aria-label="Autonomous speech settings">
+<div class="autonomy-controls">
+<button class="secondary" type="button" id="autonomyToggle" aria-pressed="false">Enable autonomous speech</button>
+<span id="autonomyState" role="status">Off · Mercy responds when spoken to.</span>
+</div>
+<p>Enabled mode lets Mercy speak occasionally after quiet periods while this tab is visible. Stop turns it off. It does not require microphone access.</p>
+</section>
+<section class="ai-panel">
+<p id="modelStatus">AI initializing automatically…</p>
+<button class="secondary" id="loadModel" type="button" hidden>Retry AI startup</button>
+<p>Mercy's small language model starts automatically. The files transfer on the first visit and are cached for offline use. The model creates replies on your device, without a paid API.</p>
+</section>
+<form id="chatForm" class="chat-form">
+<input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Talk to Mercy…" aria-label="Message Mercy" required>
+<button type="submit">Send</button>
+</form>
+<div class="log" id="log" aria-live="polite"></div>
+<details class="ai-panel" style="text-align:left">
+<summary>Mercy's identity and memory</summary>
+<p>Mercy remembers past exchanges locally and can describe its own capabilities and recent answers. This is functional self-monitoring, not verified consciousness.</p>
+<p id="mindState">No dialogue recorded yet.</p>
+<button class="secondary" id="clearMind" type="button">Clear Mercy's memory</button>
+</details>
+<footer>Speech uses the original Haunting browser voice. The model generates responses locally; its conversation history stays in this browser until cleared.</footer>
+</main>
+<script src="mercy-modes.js"></script>
+<script src="presence.js"></script>
+<script src="autonomy.js"></script>
+<script>
+"use strict";
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
+const modelStatus=document.querySelector("#modelStatus"),loadButton=document.querySelector("#loadModel"),chatForm=document.querySelector("#chatForm"),chatInput=document.querySelector("#chatInput");
+const mindState=document.querySelector("#mindState"),clearMind=document.querySelector("#clearMind");
+const autonomyToggle=document.querySelector("#autonomyToggle"),autonomyState=document.querySelector("#autonomyState");
+const VOICE_RATE=0.75, VOICE_PITCH=0.45,preferredVoiceName="Google UK English Male";
+const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
+let recognition=null,active=false,speaking=false,chosenVoice=null,speechRun=0,replySequence=0,working=false,lastIssue="";
+let autoBusy=false,spontaneousSpeaking=false;
+const autonomy=window.MercyAutonomy.create({
+ canRun:()=>!working&&!speaking&&!lastIssue&&!!window.MercyModes?.status().ready&&!!window.speechSynthesis,
+ begin:generateSpontaneous,
+ onDisable:interruptSpontaneous,
+ onChange:info=>{
+  autonomyToggle.setAttribute("aria-pressed",String(info.enabled));
+  stop.disabled=!active&&!speaking&&!working&&!info.enabled;
+  autonomyToggle.textContent=info.enabled?"Disable autonomous speech":"Enable autonomous speech";
+  autonomyState.textContent=!info.enabled?"Off · Mercy responds when spoken to.":
+   info.inFlight?"On · Mercy is forming a thought…":
+   info.paused?"On · Waiting for you to interact again.":
+   "On · Mercy may speak during quiet moments.";
+ }
+});
+autonomyToggle.onclick=()=>autonomy.toggle();
+try{
+ // One-time removal of the old pattern database, including "hello darkness" rules.
+ localStorage.removeItem("mercyReplyBrainV1");
+}catch(e){}
+function loadVoices(){
+ if(!window.speechSynthesis)return;
+ const voices=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith("en"));
+ chosenVoice=voices.find(v=>v.name===preferredVoiceName)
+ ||voices.find(v=>v.lang==="en-GB"&&/male|david|daniel|george|ryan/i.test(v.name))
+ ||voices.find(v=>v.lang==="en-GB")||voices[0]||null;
+}
+if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
+function add(who,message){
+ const p=document.createElement("p");
+ p.className=who==="YOU"?"me":who==="MERCY"?"mercy":"system";
+ p.textContent=who+": "+message;
+ log.prepend(p);
+}
+function refreshMind(){
+ const mind=window.MercyModes?.status();
+ if(!mind)return;
+ mindState.textContent="Identity: "+mind.identity+". Recorded exchanges: "+mind.turns+
+  (mind.name?". User's name: "+mind.name+".":"")+
+  ". Latest reflection: "+mind.reflection;
+}
+function setModelStatus(message){modelStatus.textContent=message;}
+clearMind.onclick=()=>{
+ if(!confirm("Clear Mercy's remembered conversations and identity observations from this browser?"))return;
+ window.MercyModes?.reset();lastIssue="";autonomy.activity();refreshMind();
+};
+refreshMind();
+function setPresence(){
+ window.MercyPresence?.setState(document.hidden?"asleep":
+   speaking?"speaking":working?"thinking":active?"listening":"idle");
+}
+document.addEventListener("visibilitychange",()=>{
+ if(document.hidden&&spontaneousSpeaking)cancelSpeech();
+ setPresence();
+});
+function cancelSpeech(){
+ speechRun++;
+ if(window.speechSynthesis)try{speechSynthesis.cancel()}catch(e){}
+ speaking=false;spontaneousSpeaking=false;setPresence();
+}
+function interruptSpontaneous(){
+ if(autoBusy){
+  replySequence++;
+  window.MercyModes?.cancelPending();
+  autoBusy=false;working=false;
+ }
+ if(spontaneousSpeaking)cancelSpeech();
+ sync();
+}
+function sync(){
+ setPresence();
+ start.disabled=active||working||!SR;
+ stop.disabled=!active&&!speaking&&!working&&!autonomy.info().enabled;
+ chatInput.disabled=working;
+ chatForm.querySelector("button").disabled=working;
+ if(working)return;
+ if(lastIssue){status.textContent=lastIssue;return;}
+ status.textContent=speaking?"Mercy is speaking…":
+   active?"Listening…":
+   !SR?"Type to Mercy. Microphone recognition is unavailable in this browser.":
+   "Type or speak to Mercy.";
+}
+function listen(){
+ if(!active||speaking||working||!recognition)return;
+ try{recognition.start();status.textContent="Listening…";}catch(e){status.textContent="Preparing microphone…";}
+}
+function say(text,logReply=true,spontaneous=false){
+ if(logReply)add("MERCY",text);
+ if(!window.speechSynthesis){status.textContent="Voice output isn't supported in this browser.";return;}
+ if(!chosenVoice)loadVoices();
+ cancelSpeech();spontaneousSpeaking=spontaneous;const run=++speechRun;speaking=true;setPresence();
+ try{recognition?.abort()}catch(e){}
+ const u=new SpeechSynthesisUtterance(text);
+ if(chosenVoice)u.voice=chosenVoice;
+ u.lang=chosenVoice?.lang||"en-GB";u.rate=VOICE_RATE;u.pitch=VOICE_PITCH;u.volume=1;
+ u.onstart=()=>{if(run===speechRun){status.textContent="Mercy is speaking…";setPresence();}};
+ u.onboundary=()=>{if(run===speechRun)window.MercyPresence?.pulse();};
+ u.onend=()=>{if(run!==speechRun)return;speaking=false;spontaneousSpeaking=false;sync();if(active)listen();};
+ u.onerror=e=>{if(run!==speechRun||e.error==="canceled"||e.error==="interrupted")return;speaking=false;spontaneousSpeaking=false;lastIssue="Voice error: "+e.error;sync();};
+ try{speechSynthesis.speak(u);sync();}catch(e){speaking=false;spontaneousSpeaking=false;lastIssue="Voice error: "+e.message;sync();}
+}
+async function loadBrain(){
+ if(!window.MercyModes)return false;
+ loadButton.hidden=true;
+ const ok=await window.MercyModes.load(setModelStatus);
+ if(ok){
+  lastIssue="";
+  setModelStatus(window.MercyModes.status().state);
+  if(!working)sync();
+ }else{
+  loadButton.hidden=false;
+  lastIssue="Local model could not initialize. Try Retry AI startup.";
+  status.textContent=lastIssue;
+ }
+ return ok;
+}
+loadButton.onclick=()=>{void loadBrain();};
+async function generateSpontaneous(){
+ // The scheduler has already confirmed explicit opt-in and a visible tab.
+ if(working||speaking||document.hidden||!window.MercyModes?.status().ready)return false;
+ const seq=++replySequence;
+ autoBusy=true;working=true;lastIssue="";
+ try{recognition?.abort()}catch(e){}
+ status.textContent="Mercy is thinking of something to say…";
+ sync();
+ try{
+  const result=await window.MercyModes.initiate(setModelStatus);
+  if(seq!==replySequence||!autonomy.info().enabled||document.hidden||result?.cancelled)return false;
+  if(!result?.text){
+   if(result?.error)setModelStatus(result.error);
+   return false;
+  }
+  say(result.text,true,true);
+  refreshMind();
+  return true;
+ }catch(error){
+  if(seq===replySequence)setModelStatus("Autonomous speech unavailable: "+String(error?.message||error).slice(0,120));
+  return false;
+ }finally{
+  if(seq===replySequence){
+   autoBusy=false;working=false;sync();
+   if(active&&!speaking)listen();
+  }
+ }
+}
+async function respond(message){
+ if(working)return;
+ const seq=++replySequence;
+ autonomy.activity();
+ lastIssue="";
+ add("YOU",message);
+ working=true;
+ try{recognition?.abort()}catch(e){}
+ status.textContent="Mercy is thinking…";
+ sync();
+ try{
+  const result=await window.MercyModes.answer(message,setModelStatus);
+  if(seq!==replySequence)return;
+  if(result?.cancelled)return;
+  if(result?.text){
+   say(result.text);
+   refreshMind();
+  }else{
+   const error=result?.error||"Mercy's local AI did not produce a reply.";
+   add("SYSTEM",error);
+   lastIssue=error;
+   status.textContent=error;
+  }
+ }catch(err){
+  if(seq===replySequence){
+   const error="Model error: "+String(err?.message||err).slice(0,130);
+   add("SYSTEM",error);
+   lastIssue=error;
+   status.textContent=error;
+  }
+ }finally{
+  if(seq===replySequence){
+   working=false;
+   sync();
+   if(active&&!speaking)listen();
+  }
+ }
+}
+chatForm.addEventListener("submit",e=>{
+ e.preventDefault();const text=chatInput.value.trim();if(!text)return;
+ chatInput.value="";active=false;void respond(text);
+});
+chatInput.addEventListener("input",()=>autonomy.activity());
+document.querySelector("#testVoice").onclick=()=>{
+ autonomy.activity();active=false;replySequence++;
+ window.MercyModes?.cancelPending();
+ working=false;autoBusy=false;lastIssue="";
+ say(testMonologue,false);
+};
+start.onclick=()=>{
+ if(working)return;
+ autonomy.activity();
+ lastIssue="";
+ if(!SR){status.textContent="Microphone recognition unavailable; type a message instead.";return;}
+ cancelSpeech();active=true;sync();listen();
+};
+stop.onclick=()=>{
+ autonomy.disable();
+ replySequence++;window.MercyModes?.cancelPending();working=false;autoBusy=false;active=false;lastIssue="";
+ try{recognition?.abort()}catch(e){}
+ cancelSpeech();sync();
+};
+if(SR){
+ recognition=new SR();recognition.lang="en-US";recognition.continuous=false;recognition.interimResults=false;
+ recognition.onresult=e=>{const phrase=e.results[e.results.length-1][0].transcript.trim();if(phrase&&!working){autonomy.activity();void respond(phrase);}};
+ recognition.onend=()=>{if(active&&!speaking&&!working)listen();else sync();};
+ recognition.onerror=e=>{if(["not-allowed","service-not-allowed","audio-capture"].includes(e.error)){active=false;sync();status.textContent="Microphone unavailable or permission denied.";}};
+}
+sync();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+void loadBrain();
+</script></body></html>
