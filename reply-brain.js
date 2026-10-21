@@ -9,7 +9,9 @@ const base={
   facts:[],
   rules:[],
   conversations:[],
-  revision:0
+  revision:0,
+  patterns:[],
+  tone:"observant"
 };
 function validRule(r){return r&&typeof r.trigger==="string"&&typeof r.response==="string"&&r.trigger.length>=2&&r.trigger.length<=100&&r.response.length>=1&&r.response.length<=400;}
 function load(){
@@ -20,13 +22,16 @@ function load(){
     facts:Array.isArray(v.facts)?v.facts.filter(x=>typeof x==="string").slice(-12):[],
     rules:Array.isArray(v.rules)?v.rules.filter(validRule).slice(-30):[],
     conversations:Array.isArray(v.conversations)?v.conversations.filter(x=>x&&typeof x.you==="string"&&typeof x.mercy==="string").slice(-12):[],
-    revision:Number.isFinite(v.revision)?v.revision:0};
+    revision:Number.isFinite(v.revision)?v.revision:0,
+    patterns:Array.isArray(v.patterns)?v.patterns.filter(p=>p&&typeof p.topic==="string"&&typeof p.lastResponse==="string"&&Array.isArray(p.history)).slice(-35):[],
+    tone:["observant","gentle","wary","solemn"].includes(v.tone)?v.tone:"observant"};
  }catch(e){return JSON.parse(JSON.stringify(base));}
 }
 let brain=load(),model=null,attempted=false;
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(brain));}catch(e){}}
 function norm(t){return t.toLowerCase().trim().replace(/[.!?]+$/g,"").replace(/\s+/g," ");}
-function remember(you,mercy){
+function remember(you,mercy,emotion="watchful"){
+ evolve(you,mercy,emotion);
  brain.conversations.push({you:you.slice(0,400),mercy:mercy.slice(0,500)});
  brain.conversations=brain.conversations.slice(-12);persist();
 }
@@ -38,6 +43,47 @@ function autoRefine(trigger,response){
  const i=brain.rules.findIndex(r=>r.trigger===target);
  if(i>=0)brain.rules[i]=rule;else brain.rules.push(rule);
  brain.rules=brain.rules.slice(-30);brain.revision++;persist();return true;
+}
+// Autonomous reply-pattern revisions from ordinary conversations.
+const STOP=new Set("this that there these those about would should could what where when which whose with from into your mine ours them they have been were just very really please mercy think thing something anything everything dont cant didnt does doing want need more some here also then than because right okay yeah sure hello hey hi".split(" "));
+function topicOf(text){
+ const words=norm(text).match(/[a-z]{3,}/g)||[];
+ const viable=words.filter(w=>!STOP.has(w));
+ return viable.sort((a,b)=>b.length-a.length)[0]||"conversation";
+}
+function nextTone(text,emotion){
+ if(emotion==="tender")return "gentle";
+ if(emotion==="uneasy"||emotion==="offended")return "wary";
+ if(emotion==="sorrowful")return "solemn";
+ if(/\b(why|how|explain|wonder|question)\b/i.test(text))return "observant";
+ return brain.tone;
+}
+function evolvingReply(text,topic,prior){
+ const count=prior?.history?.length||0;
+ const openings={
+  observant:["There is something curious about","I have been considering","I wonder what lies behind","I hear a question concerning"],
+  gentle:["Speak freely of","I will listen as you speak of","You may tell me more about","I hear you speaking of"],
+  wary:["I have not forgotten","Something unsettles me about","I remain cautious of","There is a shadow around"],
+  solemn:["The silence reminds me of","Some memories linger around","I remember your words about","Even the darkness cannot hide"]
+ };
+ const endings=["What matters most to you about it?","What happened next?","What would you have me understand?","How has it changed since we last spoke?","Is that what you truly meant?"];
+ const intro=openings[brain.tone]||openings.observant;
+ const opening=intro[(brain.revision+count)%intro.length],ending=endings[(brain.revision+count*2)%endings.length];
+ if(prior&&count>0)return opening+" "+topic+". Earlier, you spoke of it as well. "+ending;
+ return opening+" "+topic+". "+ending;
+}
+function evolve(you,mercy,emotion="watchful"){
+ if(typeof mercy!=="string"||!mercy.trim())return;
+ const topic=topicOf(you),previous=brain.patterns.find(p=>p.topic===topic);
+ const pattern=previous||{topic,lastResponse:"",history:[],count:0};
+ pattern.count=(pattern.count||0)+1;
+ pattern.lastResponse=mercy.slice(0,500);
+ pattern.history.push({input:you.slice(0,160),response:mercy.slice(0,300)});
+ pattern.history=pattern.history.slice(-5);
+ if(!previous)brain.patterns.push(pattern);
+ brain.patterns=brain.patterns.slice(-35);
+ brain.tone=nextTone(you,emotion);
+ brain.revision++;persist();
 }
 function localReason(text){
  const t=norm(text);
@@ -88,17 +134,8 @@ function localReason(text){
  if(/(?:what time|the time)/.test(t))return {text:"It is "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+".",emotion:"watchful"};
  if(/(?:can you think|are you ai|are you conscious|are you alive)/.test(t))
    return {text:"I can remember and revise my replies, but I am not conscious. Some browsers can also give me a language model.",emotion:"watchful"};
- if(/\?$/.test(text.trim()))return {text:pick([
-   "An intriguing question. Tell me more of what you seek.",
-   "I will not pretend to know what lies beyond my understanding. What makes you ask?",
-   "There is more to that question than its words. Speak a little further."
- ]),emotion:"watchful"};
- return {text:pick([
-  "I hear you. What would you have me understand?",
-  "Your words have reached me. Tell me what came before them.",
-  "Go on, wanderer. I am listening.",
-  "I will remember this exchange, though I have more to learn."
- ]),emotion:"watchful"};
+ const topic=topicOf(text),seen=brain.patterns.find(p=>p.topic===topic);
+ return {text:evolvingReply(text,topic,seen),emotion:"watchful"};
 }
 // Experimental built-in on-device language models (only in supporting browsers).
 // No remote API keys, no surprise network calls from this code.
@@ -128,7 +165,7 @@ async function think(text){
 }
 window.MercyBrain=Object.freeze({
  think,remember,
- state:()=>({revision:brain.revision,ruleCount:brain.rules.length,conversationCount:brain.conversations.length,modelAvailable:!!model,rules:brain.rules.slice(),name:brain.name}),
+ state:()=>({revision:brain.revision,ruleCount:brain.rules.length,conversationCount:brain.conversations.length,modelAvailable:!!model,rules:brain.rules.slice(),name:brain.name,patternCount:brain.patterns.length,tone:brain.tone,patterns:brain.patterns.map(p=>({topic:p.topic,count:p.count,lastResponse:p.lastResponse}))}),
  reset:()=>{brain=JSON.parse(JSON.stringify(base));persist();},
  learn:(trigger,response)=>autoRefine(trigger,response)
 });
