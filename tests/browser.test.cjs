@@ -106,7 +106,7 @@ test("personal name questions respect the remembered fact and 6-7 word request",
  let mercy=make();
  const unknown=await mercy.answer("answer this in 6-7 words what is my name");
  assert.equal(unknown.text,"I don't know your name just yet.");
- assert.equal(unknown.text.trim().split(/\\s+/).length,7);
+ assert.equal(unknown.text.trim().split(/\s+/).length,7);
  // Revisit the page: browser localStorage should retain the person's name.
  saved.set("mercy-identity-memory-v1",JSON.stringify({
   version:1,identity:"Mercy",name:"Alex",observations:[],turns:1,
@@ -116,5 +116,5 @@ test("personal name questions respect the remembered fact and 6-7 word request",
  mercy=make();
  const known=await mercy.answer("answer this in 6-7 words what is my name");
  assert.equal(known.text,"You told me your name is Alex.");
- assert.equal(known.text.trim().split(/\\s+/).length,7);
+ assert.equal(known.text.trim().split(/\s+/).length,7);
 });
