@@ -40,8 +40,12 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 </select>
 <label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
 <label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
+<label for="reverb">Voice reverb <output id="reverbValue">25%</output></label>
+<input id="reverb" type="range" min="0" max="60" step="5" value="25">
+<button class="secondary" id="enableReverb" type="button">Enable real voice reverb</button>
+<p id="reverbStatus" style="font-size:12px;color:#bba7b5;margin:0">Off. Desktop Chrome/Edge: select “This Tab” and enable “Also share tab audio” when prompted.</p>
 <button class="secondary" id="preset">Reset Mercy preset</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">Every emotion speaks the same monologue, making it easier to compare changes in speed and pitch. Browser voices vary in expressiveness.</p>
+<p style="font-size:12px;color:#af9fad;text-align:left">Every emotion speaks the same monologue. Real reverb requires sharing this tab’s audio; it is not enabled automatically, and may be unavailable on phones.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -54,6 +58,69 @@ const preferredVoiceName="Google UK English Male";
 let speechRun=0;
 const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
 const voiceSelect=document.querySelector("#voiceSelect"),pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),emotion=document.querySelector("#emotion");
+const reverb=document.querySelector("#reverb"),reverbValue=document.querySelector("#reverbValue"),reverbStatus=document.querySelector("#reverbStatus"),enableReverb=document.querySelector("#enableReverb");
+let reverbStream=null,reverbContext=null,reverbNodes=null;
+function updateReverb(){
+ reverbValue.textContent=reverb.value+"%";
+ if(reverbNodes){
+  const wet=Number(reverb.value)/100;
+  reverbNodes.wet1.gain.value=wet*.42;
+  reverbNodes.wet2.gain.value=wet*.19;
+ }
+}
+function disableReverb(){
+ const stream=reverbStream;
+ reverbStream=null;
+ if(stream)for(const track of stream.getTracks())try{track.stop()}catch(e){}
+ if(reverbNodes){
+  try{reverbNodes.source.disconnect();reverbNodes.delay1.disconnect();reverbNodes.delay2.disconnect();reverbNodes.wet1.disconnect();reverbNodes.wet2.disconnect()}catch(e){}
+  reverbNodes=null;
+ }
+ if(reverbContext){reverbContext.close().catch(()=>{});reverbContext=null;}
+ enableReverb.textContent="Enable real voice reverb";
+ reverbStatus.textContent="Off. Click Enable and share this tab with audio.";
+}
+async function toggleReverb(){
+ if(reverbStream){disableReverb();return;}
+ if(!navigator.mediaDevices?.getDisplayMedia){
+  reverbStatus.textContent="This browser cannot capture tab audio. Try desktop Chrome or Edge.";
+  return;
+ }
+ enableReverb.disabled=true;
+ try{
+  const stream=await navigator.mediaDevices.getDisplayMedia({
+   video:true,audio:true,preferCurrentTab:true,selfBrowserSurface:"include",
+   systemAudio:"exclude",surfaceSwitching:"exclude"
+  });
+  if(stream.getAudioTracks().length===0){
+   for(const track of stream.getTracks())track.stop();
+   reverbStatus.textContent="No tab audio was shared. Choose This Tab and tick Also share tab audio.";
+   return;
+  }
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  await ctx.resume();
+  const source=ctx.createMediaStreamSource(stream);
+  // Wet-only echoes: original TTS plays normally; the captured voice feeds quiet repeats.
+  // Do not route the captured dry voice back to the speakers.
+  const delay1=ctx.createDelay(1),delay2=ctx.createDelay(1),wet1=ctx.createGain(),wet2=ctx.createGain();
+  delay1.delayTime.value=.19;delay2.delayTime.value=.43;
+  source.connect(delay1);source.connect(delay2);
+  delay1.connect(wet1);delay2.connect(wet2);
+  wet1.connect(ctx.destination);wet2.connect(ctx.destination);
+  reverbStream=stream;reverbContext=ctx;
+  reverbNodes={source,delay1,delay2,wet1,wet2};
+  updateReverb();
+  enableReverb.textContent="Disable real voice reverb";
+  reverbStatus.textContent="Reverb enabled for captured tab audio. Turn it off if echoes build up.";
+  stream.getVideoTracks()[0]?.addEventListener("ended",disableReverb,{once:true});
+  stream.getAudioTracks()[0]?.addEventListener("ended",disableReverb,{once:true});
+ }catch(e){
+  reverbStatus.textContent=e.name==="NotAllowedError"?"Tab sharing cancelled. Voice still works normally.":"Reverb unavailable: "+e.message;
+ }finally{enableReverb.disabled=false;}
+}
+enableReverb.addEventListener("click",toggleReverb);
+reverb.addEventListener("input",updateReverb);
+updateReverb();
 function saveVoicePrefs(){
  try{localStorage.setItem("mercyVoiceV4",JSON.stringify({voice:chosenVoice?.name||preferredVoiceName,rate:rate.value,pitch:pitch.value,emotion:emotion.value}));}catch(e){}
 }
