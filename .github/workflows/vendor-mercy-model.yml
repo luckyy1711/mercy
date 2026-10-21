@@ -4,6 +4,9 @@ on:
     paths:
       - ".github/workflows/vendor-mercy-model.yml"
   workflow_dispatch:
+concurrency:
+  group: vendor-mercy-model
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
@@ -75,10 +78,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add models/onnx-community/SmolLM2-135M-Instruct-ONNX/
+          git add -f models/onnx-community/SmolLM2-135M-Instruct-ONNX/
           if git diff --cached --quiet; then
             echo "Model files already present"
           else
             git commit -m "Vendor offline SmolLM2 model assets [skip ci]"
+            git fetch origin "${{ github.ref_name }}"
+            git rebase "origin/${{ github.ref_name }}"
             git push origin HEAD:${{ github.ref_name }}
           fi
