@@ -51,6 +51,7 @@ function remember(user,reply){
 }
 function status(){return {ready:!!generator,loading:!!loading,state,source,identity:memory.identity,turns:memory.turns,name:memory.name,reflection:memory.lastReflection};}
 function reset(){memoryGeneration++;memory=initial();save();}
+function cancelPending(){memoryGeneration++;}
 function clean(value){
  let result=String(value||"").trim();
  result=result.replace(/<\|[^>]+\|>/g,"").replace(/^(?:assistant|Mercy)\s*:\s*/i,"").trim();
@@ -165,5 +166,5 @@ async function generateAnswer(user,report){
   return {error:state};
  }
 }
-window.MercyModes=Object.freeze({status,load,answer,reset});
+window.MercyModes=Object.freeze({status,load,answer,reset,cancelPending});
 })();
