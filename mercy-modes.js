@@ -14,6 +14,8 @@ const initial=()=>({
  observations:[],
  turns:0,
  lastReflection:"No dialogue yet",
+ lastInitiative:"",
+ initiativeCount:0,
  name:null
 });
 function read(){
@@ -26,6 +28,8 @@ function read(){
    observations:Array.isArray(saved.observations)?saved.observations.filter(v=>typeof v==="string").slice(-12):[],
    turns:Number.isFinite(saved.turns)?Math.max(0,saved.turns):0,
    lastReflection:typeof saved.lastReflection==="string"?saved.lastReflection.slice(0,250):"No dialogue yet",
+   lastInitiative:typeof saved.lastInitiative==="string"?saved.lastInitiative.slice(0,220):"",
+   initiativeCount:Number.isFinite(saved.initiativeCount)?Math.max(0,Math.min(99999,saved.initiativeCount)):0,
    name:typeof saved.name==="string"?saved.name.slice(0,45):null
   };
  }catch(e){return initial();}
@@ -49,7 +53,7 @@ function remember(user,reply){
  memory.lastReflection="I replied to: "+String(user).slice(0,115)+". My response was: "+String(reply).slice(0,115);
  save();
 }
-function status(){return {ready:!!generator,loading:!!loading,state,source,identity:memory.identity,turns:memory.turns,name:memory.name,reflection:memory.lastReflection};}
+function status(){return {ready:!!generator,loading:!!loading,state,source,identity:memory.identity,turns:memory.turns,initiativeCount:memory.initiativeCount,name:memory.name,reflection:memory.lastReflection};}
 function reset(){memoryGeneration++;memory=initial();save();}
 function cancelPending(){memoryGeneration++;}
 function clean(value){
@@ -127,6 +131,13 @@ async function load(report){
  })();
  return loading;
 }
+function initiate(report){
+ // The exact same generative pipeline creates spontaneous lines;
+ // no canned dialogue or timers run here. The UI decides when it may speak.
+ const job=generationQueue.catch(()=>{}).then(()=>generateInitiative(report));
+ generationQueue=job.catch(()=>{});
+ return job;
+}
 function answer(user,report){
  // Queue generation: the WASM pipeline is not safe to run concurrently.
  const job=generationQueue.catch(()=>{}).then(()=>generateAnswer(user,report));
@@ -199,5 +210,41 @@ async function generateAnswer(user,report){
   return {error:state};
  }
 }
-window.MercyModes=Object.freeze({status,load,answer,reset,cancelPending});
+async function generateInitiative(report){
+ const epoch=memoryGeneration;
+ if(!generator)return {error:"Offline AI is not ready."};
+ state="Mercy is considering whether to speak…";report?.(state);
+ const persona="You are MERCY, a gothic guardian AI character with quiet, observant, lightly sarcastic personality. You have been sitting with the visitor in a pause. Speak first with ONE short, original sentence: an interesting observation or a gentle question connected to your recent conversation if possible. Do not announce that you are autonomous. No routine greetings, stock phrases, fake memories, markdown or stage directions. Avoid repeating the last thing you said. This is a fictional AI character, not a conscious being.";
+ const context=memory.name?"Visitor name, if naturally useful: "+memory.name+". ":"";
+ const avoid=memory.lastInitiative?"Your previous unsolicited remark was: "+memory.lastInitiative+". Do not repeat it. ":"";
+ try{
+  const messages=[
+   {role:"system",content:persona+" "+context+avoid},
+   ...memory.conversation.slice(-6),
+   {role:"user",content:"The visitor has been quiet for a while. If you have something worth saying, say it briefly and naturally. Speak to the visitor now."}
+  ];
+  const output=await generator(messages,{
+   max_new_tokens:55,do_sample:true,temperature:.88,
+   repetition_penalty:1.2,return_full_text:false
+  });
+  if(epoch!==memoryGeneration)return {cancelled:true};
+  const generated=output?.[0]?.generated_text;
+  const raw=Array.isArray(generated)?generated.at(-1)?.content:generated;
+  const reply=clean(raw);
+  if(!reply)return {error:"The local AI did not produce a spontaneous thought."};
+  memory.conversation.push({role:"assistant",content:reply});
+  memory.conversation=memory.conversation.slice(-12);
+  memory.initiativeCount++;
+  memory.lastInitiative=reply.slice(0,220);
+  memory.lastReflection="I initiated a conversation with: "+reply.slice(0,180);
+  save();
+  state="AI ready · "+source;report?.(state);
+  return {text:reply,spontaneous:true};
+ }catch(err){
+  state="Initiation failed: "+String(err?.message||err).slice(0,130);
+  report?.(state);
+  return {error:state};
+ }
+}
+window.MercyModes=Object.freeze({status,load,answer,initiate,reset,cancelPending});
 })();
