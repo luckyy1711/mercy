@@ -1,14 +1,15 @@
 "use strict";
-const SHELL="mercy-shell-v7";
+const SHELL="mercy-shell-v8";
 const ASSETS=["./","./index.html","./mercy-modes.js","./presence.css","./presence.js","./autonomy.js"];
-const MODEL_END="/onnx-community/SmolLM2-135M-Instruct-ONNX/onnx/model_int8.onnx";
+// Support both archived lightweight assets and the upgraded dialogue model.
+const MODEL_RE=/\/models\/onnx-community\/SmolLM2-(?:135M|360M)-Instruct-ONNX\/onnx\/model_int8\.onnx$/;
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(SHELL).then(cache=>cache.addAll(ASSETS))
   .then(()=>self.skipWaiting()).catch(()=>{}));
 });
 self.addEventListener("message",event=>{
  if(event.data?.type==="MERCY_WORKER_VERSION"){
-  event.ports?.[0]?.postMessage({version:6});
+  event.ports?.[0]?.postMessage({version:7});
  }
 });
 self.addEventListener("activate",event=>{
@@ -64,7 +65,7 @@ self.addEventListener("fetch",event=>{
  const req=event.request;
  if(req.method!=="GET")return;
  const url=new URL(req.url);
- if(url.origin===self.location.origin&&url.pathname.endsWith(MODEL_END)){
+ if(url.origin===self.location.origin&&MODEL_RE.test(url.pathname)){
   event.respondWith(modelResponse(req));return;
  }
  const sameOrigin=url.origin===self.location.origin;
