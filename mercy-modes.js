@@ -2,7 +2,7 @@
 // MERCY: local language model + persistent self-model. No claims of real consciousness.
 // No speechSynthesis, pitch, voice settings, APIs with passwords, or canned replies here.
 (function(){
-const MODEL="onnx-community/SmolLM2-135M-Instruct-ONNX";
+const MODEL="onnx-community/SmolLM2-360M-Instruct-ONNX";
 const SCRIPT="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6/+esm";
 const MODEL_DIR=new URL("./models/"+MODEL+"/",document.baseURI);
 const BASE_DIR=new URL("./models/",document.baseURI);
@@ -11,6 +11,7 @@ const initial=()=>({
  version:1,
  identity:"Mercy",
  conversation:[],
+ cleanDialogue:[],
  observations:[],
  turns:0,
  lastReflection:"No dialogue yet",
@@ -25,6 +26,9 @@ function read(){
   return {
    version:1,identity:"Mercy",
    conversation:Array.isArray(saved.conversation)?saved.conversation.filter(m=>m&&["user","assistant"].includes(m.role)&&typeof m.content==="string").slice(-12):[],
+   // Start a clean context after upgrading the model. Old exchanges stay visible
+   // in memory, but unreliable responses from the 135M model are not re-prompted.
+   cleanDialogue:Array.isArray(saved.cleanDialogue)?saved.cleanDialogue.filter(m=>m&&["user","assistant"].includes(m.role)&&typeof m.content==="string").slice(-8):[],
    observations:Array.isArray(saved.observations)?saved.observations.filter(v=>typeof v==="string").slice(-12):[],
    turns:Number.isFinite(saved.turns)?Math.max(0,saved.turns):0,
    lastReflection:typeof saved.lastReflection==="string"?saved.lastReflection.slice(0,250):"No dialogue yet",
@@ -48,6 +52,8 @@ function remember(user,reply){
  noteUser(user);
  memory.conversation.push({role:"user",content:String(user).slice(0,450)},{role:"assistant",content:String(reply).slice(0,550)});
  memory.conversation=memory.conversation.slice(-12);
+ memory.cleanDialogue.push({role:"user",content:String(user).slice(0,350)},{role:"assistant",content:String(reply).slice(0,380)});
+ memory.cleanDialogue=memory.cleanDialogue.slice(-8);
  memory.turns++;
  // A factual introspection log: what Mercy last replied, not a claim of sentience.
  memory.lastReflection="I replied to: "+String(user).slice(0,115)+". My response was: "+String(reply).slice(0,115);
@@ -170,6 +176,13 @@ function memoryAnswer(question){
  }
  return {text:answer};
 }
+function contextFor(user){
+ const incoming=String(user).trim().toLowerCase().replace(/[!?.\s]+$/,"");
+ // Short greetings are new turns, not follow-ups to old questions.
+ // This selects context; it never generates or substitutes scripted dialogue.
+ const standalone=/^(?:hi|hello|hey|hey there|yo|sup|good morning|good evening|good afternoon|hiya|howdy|greetings|what's up|whats up)$/i.test(incoming);
+ return standalone?[]:memory.cleanDialogue.slice(-4);
+}
 async function generateAnswer(user,report){
  const epoch=memoryGeneration;
  noteUser(user);
@@ -184,17 +197,17 @@ async function generateAnswer(user,report){
  }
  if(epoch!==memoryGeneration)return {cancelled:true};
  state="Writing a new answer…";report?.(state);
- const self="You are MERCY, a fictional gothic guardian AI character. Answer the user\u0027s latest question DIRECTLY before adding personality. Never generate unrelated advice. Keep answers short and meaningful. Follow requested word limits. Be dryly sarcastic only when appropriate. If a fact is unknown, say you do not know. You are not conscious. No markdown or role labels.";
+ const self="You are Mercy, a witty gothic AI companion. Directly respond to ONLY the current user message. For a simple greeting, greet them naturally in one short sentence. Do not bring up past questions unless asked. For questions, give a relevant, brief answer; say when you do not know. Avoid generic advice, summaries, imagined tasks, and repetition. You are not conscious. No role labels, markdown, or stage directions.";
  const continuity=memory.name?"The user said their name is "+memory.name+". ":"";
  try{
   const messages=[
    {role:"system",content:self+" "+continuity},
-   ...memory.conversation.slice(-8),
+   ...contextFor(user),
    {role:"user",content:String(user).slice(0,500)}
   ];
   const output=await generator(messages,{
-   max_new_tokens:75,do_sample:false,
-   repetition_penalty:1.16,return_full_text:false
+   max_new_tokens:68,do_sample:false,
+   repetition_penalty:1.1,return_full_text:false
   });
   if(epoch!==memoryGeneration)return {cancelled:true};
   const generated=output?.[0]?.generated_text;
@@ -220,7 +233,7 @@ async function generateInitiative(report){
  try{
   const messages=[
    {role:"system",content:persona+" "+context+avoid},
-   ...memory.conversation.slice(-6),
+   ...memory.cleanDialogue.slice(-4),
    {role:"user",content:"The visitor has been quiet for a while. If you have something worth saying, say it briefly and naturally. Speak to the visitor now."}
   ];
   const output=await generator(messages,{
@@ -234,6 +247,8 @@ async function generateInitiative(report){
   if(!reply)return {error:"The local AI did not produce a spontaneous thought."};
   memory.conversation.push({role:"assistant",content:reply});
   memory.conversation=memory.conversation.slice(-12);
+  memory.cleanDialogue.push({role:"assistant",content:reply.slice(0,380)});
+  memory.cleanDialogue=memory.cleanDialogue.slice(-8);
   memory.initiativeCount++;
   memory.lastInitiative=reply.slice(0,220);
   memory.lastReflection="I initiated a conversation with: "+reply.slice(0,180);
