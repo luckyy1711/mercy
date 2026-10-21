@@ -5,10 +5,29 @@
  const caption=document.querySelector("#presenceCaption");
  if(!stage){window.MercyPresence=Object.freeze({setState(){}});return;}
  const names={idle:"Watching",listening:"Listening",thinking:"Considering",speaking:"Speaking",asleep:"Resting"};
- let state="idle",frame=0;
+ let state="idle",frame=0,blinkTimer=null,blinkEnd=null,pulseTimer=null;
+ const reduceMotion=window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches===true;
+ function scheduleBlink(){
+  if(blinkTimer!==null)clearTimeout(blinkTimer);
+  if(reduceMotion||document.hidden)return;
+  blinkTimer=setTimeout(()=>{
+   blinkTimer=null;
+   stage.classList.add("is-blinking");
+   if(blinkEnd!==null)clearTimeout(blinkEnd);
+   blinkEnd=setTimeout(()=>{stage.classList.remove("is-blinking");blinkEnd=null;},285);
+   scheduleBlink();
+  },2600+Math.random()*4800);
+ }
+ function pulse(){
+  if(reduceMotion||document.hidden||state!=="speaking")return;
+  stage.classList.add("word-pulse");
+  if(pulseTimer!==null)clearTimeout(pulseTimer);
+  pulseTimer=setTimeout(()=>{stage.classList.remove("word-pulse");pulseTimer=null;},175);
+ }
  function setState(next){
   state=Object.hasOwn(names,next)?next:"idle";
   stage.dataset.state=state;
+  if(state!=="speaking")stage.classList.remove("word-pulse");
   if(caption)caption.textContent=names[state];
   if(state==="asleep")resetGaze();
  }
@@ -32,7 +51,14 @@
  }
  stage.addEventListener("pointermove",move,{passive:true});
  stage.addEventListener("pointerleave",resetGaze,{passive:true});
- document.addEventListener("visibilitychange",()=>{if(document.hidden)resetGaze();});
- window.MercyPresence=Object.freeze({setState,getState:()=>state});
- setState("idle");
+ document.addEventListener("visibilitychange",()=>{
+  if(document.hidden){
+   resetGaze();
+   if(blinkTimer!==null){clearTimeout(blinkTimer);blinkTimer=null;}
+   if(blinkEnd!==null){clearTimeout(blinkEnd);blinkEnd=null;}
+   stage.classList.remove("is-blinking","word-pulse");
+  }else{scheduleBlink();}
+ });
+ window.MercyPresence=Object.freeze({setState,pulse,getState:()=>state});
+ setState("idle");scheduleBlink();
 })();
