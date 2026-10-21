@@ -22,7 +22,7 @@ async function installLocal(progress){
   try{
    localState="loading tiny offline model";progress?.(localState);
    // Browser import and model download are requested only after explicit button click.
-   const {pipeline,env}=await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6");
+   const {pipeline,env}=await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6/+esm");
    env.useBrowserCache=true;
    env.allowRemoteModels=true;
    generator=await pipeline("text-generation",MODEL,{
