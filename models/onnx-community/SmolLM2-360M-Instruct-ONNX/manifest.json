@@ -1,0 +1,15 @@
+{
+  "model": "onnx-community/SmolLM2-360M-Instruct-ONNX",
+  "dtype": "int8",
+  "size": 363115149,
+  "sha256": "5ee6c8dc6791050d8779687a16c8167643a234e00ea41e06a92e05f88003dbb3",
+  "parts": [
+    "model_int8.onnx.part00",
+    "model_int8.onnx.part01",
+    "model_int8.onnx.part02",
+    "model_int8.onnx.part03",
+    "model_int8.onnx.part04",
+    "model_int8.onnx.part05",
+    "model_int8.onnx.part06"
+  ]
+}
