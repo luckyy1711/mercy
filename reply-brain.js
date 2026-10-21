@@ -96,6 +96,23 @@ function evolve(you,mercy,emotion="watchful"){
 }
 function localReason(text){
  const t=norm(text);
+ // Short conversation turns are never encyclopedia requests.
+ if(/^(?:yo|sup|wassup|hey|hiya|hola|hello|hi|hey there|yo mercy)$/.test(t))
+  return {text:pick(["Well, well. You again. What mischief brings you here?","There you are. What is on your mind?","Ah, wanderer. Speak your mind."]),emotion:"amused"};
+ if(/^(?:what|huh|what now|what do you mean|what did you mean|come again|say that again)$/.test(t)){
+  const last=brain.conversations.at(-1);
+  const previous=last?.mercy||"";
+  const tooVague=/^(?:i hear you|tell me more|you mentioned|i don't know enough)/i.test(previous);
+  if(last&&!tooVague)return {text:"I meant this: "+previous.slice(0,250)+" Would you like me to explain it differently?",emotion:"watchful"};
+  return {text:"I was being unclear. Ask me what you want to know, and I shall try again.",emotion:"watchful"};
+ }
+ if(/^(?:lol|lmao|haha|hehe|lmaoo|bruh)$/.test(t))return {text:"Do I amuse you? Well, I suppose that makes one of us.",emotion:"amused"};
+ if(/^(?:ok|okay|alright|aight|sure|yeah|yep|yes|no|nah|nope)$/.test(t))return {text:"Very well. What shall we speak of next?",emotion:"watchful"};
+ if(/^(?:thanks|thank you|ty|thank u)$/.test(t))return {text:"How unusually polite of you. You are welcome.",emotion:"tender"};
+ if(/^(?:how are you|how you doing|how's it going|hows it going)$/.test(t))return {text:"Still haunting these halls, apparently. And you?",emotion:"watchful"};
+ if(/^(?:what's up|whats up|what up|wyd|what are you doing)$/.test(t))return {text:"Listening to the living, as always. What troubles your kingdom today?",emotion:"amused"};
+ if(/^(?:who are you|what is your name)$/.test(t))return {text:"I am Mercy. Apparently the only thing in this castle with time to listen.",emotion:"watchful"};
+ if(/^(?:tell me a joke|make a joke)$/.test(t))return {text:"A skeleton walked into a tavern and asked for a drink... and a mop. Even death has its inconveniences.",emotion:"amused"};
  if(/^(?:when i say|if i say)\s+(.{2,100}?)\s*,?\s*(?:reply|respond|say)\s+(?:with\s+)?(.{1,400})$/i.test(text.trim())){
    const m=text.trim().match(/^(?:when i say|if i say)\s+(.{2,100}?)\s*,?\s*(?:reply|respond|say)\s+(?:with\s+)?(.{1,400})$/i);
    const trigger=m[1].replace(/[:"“”]+$/g,"").trim();
