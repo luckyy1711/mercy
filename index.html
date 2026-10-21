@@ -91,7 +91,7 @@ function refreshBrain(){
  const panel=document.querySelector("#brainStatus"),rules=document.querySelector("#brainRules");
  if(!window.MercyBrain){panel.textContent="Reply brain failed to load. Refresh the page.";return;}
  const state=window.MercyBrain.state();
- panel.textContent="Local revisions: "+state.revision+" · Learned rules: "+state.ruleCount+" · Remembered exchanges: "+state.conversationCount
+ panel.textContent="Automatic revisions: "+state.revision+" · Evolving topics: "+state.patternCount+" · Learned rules: "+state.ruleCount+" · Remembered exchanges: "+state.conversationCount
    +(state.modelAvailable?" · On-device AI active":" · Local reasoning active");
  rules.replaceChildren();
  for(const rule of state.rules){
@@ -107,11 +107,11 @@ async function respond(phrase){
   if(result?.emotion)setExpression(result.emotion);
   if(result?.stop)active=false;
   if(result?.action==="laugh"){
-   window.MercyBrain.remember(phrase,"[laughs]");
+   window.MercyBrain.remember(phrase,"[laughs]","amused");
    playLaugh();
   }else{
    const words=result?.text||"I am listening.";
-   window.MercyBrain.remember(phrase,words);
+   window.MercyBrain.remember(phrase,words,result?.emotion||"watchful");
    say(words);
   }
   refreshBrain();
