@@ -30,27 +30,13 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 #brainRules{white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto}
 </style></head>
 <body><main>
-<small>VOICE PROTOTYPE · ORIGINAL</small>
-<h1>MERCY</h1><p>A voice in the dark. Speak, and she will answer.</p>
+<small>VOICE PROTOTYPE</small>
+<h1>MERCY</h1>
 <p id="status" role="status">Press Start to activate the microphone.</p>
 <button id="start">Start listening</button>
 <button class="secondary" id="stop" disabled>Stop</button>
 <button class="secondary" id="testVoice">Hear Mercy's monologue</button>
 <button class="secondary" id="laugh">Hear Mercy laugh</button>
-<p id="emotionStatus" style="font-size:12px;color:#ddafca" aria-live="polite">Expression: Watchful</p>
-<p id="voiceInfo" style="font-size:12px;color:#bba7b5">Loading voice…</p>
-<div class="panel">
-<p class="mode">HAUNTING · MERCY'S ORIGINAL VOICE</p>
-<label for="rate">Speech speed <output id="rateValue">0.75×</output></label>
-<input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
-<label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label>
-<input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
-<button class="secondary" id="preset">Reset original voice</button>
-<label for="customPhrase">Test your own phrase</label>
-<textarea id="customPhrase" maxlength="500" placeholder="What should Mercy say?"></textarea>
-<button class="secondary" id="testCustom">Speak phrase</button>
-<p style="font-size:12px;color:#bba7b5">Try saying: “I'm scared”, “I missed you”, “I hate you”, or “make me laugh”.</p>
-</div>
 <form id="chatForm" class="chat-form">
 <input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Type to Mercy…" aria-label="Message Mercy">
 <button type="submit">Send</button>
@@ -62,17 +48,17 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <div id="brainRules"></div>
 <button class="secondary" id="resetBrain" type="button">Clear learned replies and memory</button>
 </details>
-<footer>Type or speak to Mercy. His reply brain can learn and revise response rules locally, without modifying speech settings. Some compatible browsers may support an on-device language model; otherwise replies use local reasoning.</footer>
+<footer>Type or speak to Mercy. His reply brain can learn and revise responses locally, without changing the voice. Some compatible browsers may support an on-device language model; otherwise replies use local reasoning.</footer>
 </main>
 <script src="reply-brain.js"></script>
 <script>
 "use strict";
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
-const rate=document.querySelector("#rate"),pitch=document.querySelector("#pitch"),voiceInfo=document.querySelector("#voiceInfo");
+const VOICE_RATE=0.75, VOICE_PITCH=0.45;
 let recognition=null,active=false,speaking=false,chosenVoice=null,speechRun=0;
 let expression="watchful";
-const expressionStatus=document.querySelector("#emotionStatus");
+
 const expressions={
  watchful:{rate:1,pitch:1,label:"Watchful"},
  tender:{rate:.92,pitch:1.12,label:"Tender"},
@@ -81,7 +67,7 @@ const expressions={
  amused:{rate:1.02,pitch:1.15,label:"Amused"},
  uneasy:{rate:1.08,pitch:1.2,label:"Uneasy"}
 };
-function setExpression(name){expression=expressions[name]?name:"watchful";expressionStatus.textContent="Expression: "+expressions[expression].label;}
+function setExpression(name){expression=expressions[name]?name:"watchful";}
 function playLaugh(){
  active=false;
  setExpression("amused");
@@ -93,20 +79,12 @@ function playLaugh(){
 const preferredVoiceName="Google UK English Male";
 const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
 function loadVoices(){
- if(!window.speechSynthesis){voiceInfo.textContent="Speech unavailable in this browser.";return;}
+ if(!window.speechSynthesis)return;
  const voices=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith("en"));
- if(!voices.length){voiceInfo.textContent="Waiting for English browser voice…";return;}
  chosenVoice=voices.find(v=>v.name===preferredVoiceName)
    ||voices.find(v=>v.lang==="en-GB"&&/male|david|daniel|george|ryan/i.test(v.name))
-   ||voices.find(v=>v.lang==="en-GB")||voices[0];
- voiceInfo.textContent="Voice: "+chosenVoice.name+" ("+chosenVoice.lang+")";
+   ||voices.find(v=>v.lang==="en-GB")||voices[0]||null;
 }
-function labels(){document.querySelector("#rateValue").textContent=rate.value+"×";document.querySelector("#pitchValue").textContent=pitch.value;}
-function save(){try{localStorage.setItem("mercyOriginalVoice",JSON.stringify({rate:rate.value,pitch:pitch.value}));}catch(e){}}
-try{const v=JSON.parse(localStorage.getItem("mercyOriginalVoice")||"null");if(v){if(v.rate)rate.value=v.rate;if(v.pitch)pitch.value=v.pitch;}}catch(e){}
-labels();
-for(const el of [rate,pitch])el.addEventListener("input",()=>{labels();save();});
-document.querySelector("#preset").onclick=()=>{rate.value="0.75";pitch.value="0.45";labels();save();};
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
 function refreshBrain(){
@@ -159,8 +137,8 @@ function say(text,test=false){
  if(chosenVoice)u.voice=chosenVoice;
  const style=expressions[expression]||expressions.watchful;
  u.lang=chosenVoice?.lang||"en-GB";
- u.rate=Math.max(.5,Math.min(1.5,Number(rate.value)*style.rate));
- u.pitch=Math.max(.25,Math.min(1.6,Number(pitch.value)*style.pitch));u.volume=1;
+ u.rate=Math.max(.5,Math.min(1.5,VOICE_RATE*style.rate));
+ u.pitch=Math.max(.25,Math.min(1.6,VOICE_PITCH*style.pitch));u.volume=1;
  u.onstart=()=>{if(run===speechRun)status.textContent="Mercy is speaking…";};
  u.onend=()=>{if(run!==speechRun)return;speaking=false;if(active)listen();else sync();};
  u.onerror=e=>{if(run!==speechRun||e.error==="canceled"||e.error==="interrupted")return;speaking=false;status.textContent="Voice error: "+e.error;};
@@ -183,7 +161,6 @@ document.querySelector("#chatForm").addEventListener("submit",e=>{
  void respond(phrase);
 });
 document.querySelector("#testVoice").onclick=()=>{active=false;say(testMonologue,true);};
-document.querySelector("#testCustom").onclick=()=>{const t=document.querySelector("#customPhrase").value.trim();if(t){active=false;say(t,true);}else status.textContent="Enter a phrase first.";};
 document.querySelector("#laugh").onclick=playLaugh;
 start.onclick=()=>{cancelSpeech();active=true;sync();listen();};
 stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync();};
