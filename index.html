@@ -35,21 +35,27 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <body><main>
 <small>VOICE PROTOTYPE</small>
 <h1>MERCY</h1>
-<p id="status" role="status">Load Mercy's AI brain, then type or speak.</p>
+<p id="status" role="status">Mercy is waking…</p>
 <button id="start">Start listening</button>
 <button class="secondary" id="stop">Stop voice</button>
 <button class="secondary" id="testVoice">Hear Mercy's monologue</button>
 <section class="ai-panel">
-<p id="modelStatus">AI brain not loaded</p>
-<button class="secondary" id="loadModel" type="button">Load AI Brain · free and local</button>
-<p>Mercy writes his own replies using a tiny local language model. First use requires downloading model files. There are no scripted replies or web-definition lookups. Tiny models can still make mistakes.</p>
+<p id="modelStatus">AI initializing automatically…</p>
+<button class="secondary" id="loadModel" type="button" hidden>Retry AI startup</button>
+<p>Mercy's small language model starts automatically. The files transfer on the first visit and are cached for offline use. The model creates replies on your device, without a paid API.</p>
 </section>
 <form id="chatForm" class="chat-form">
 <input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Talk to Mercy…" aria-label="Message Mercy" required>
 <button type="submit">Send</button>
 </form>
 <div class="log" id="log" aria-live="polite"></div>
-<footer>Speech uses the original Haunting browser voice. AI inference runs on your device after download. Conversations stay in this page session.</footer>
+<details class="ai-panel" style="text-align:left">
+<summary>Mercy's identity and memory</summary>
+<p>Mercy remembers past exchanges locally and can describe its own capabilities and recent answers. This is functional self-monitoring, not verified consciousness.</p>
+<p id="mindState">No dialogue recorded yet.</p>
+<button class="secondary" id="clearMind" type="button">Clear Mercy's memory</button>
+</details>
+<footer>Speech uses the original Haunting browser voice. The model generates responses locally; its conversation history stays in this browser until cleared.</footer>
 </main>
 <script src="mercy-modes.js"></script>
 <script>
@@ -57,6 +63,7 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const start=document.querySelector("#start"),stop=document.querySelector("#stop"),status=document.querySelector("#status"),log=document.querySelector("#log");
 const modelStatus=document.querySelector("#modelStatus"),loadButton=document.querySelector("#loadModel"),chatForm=document.querySelector("#chatForm"),chatInput=document.querySelector("#chatInput");
+const mindState=document.querySelector("#mindState"),clearMind=document.querySelector("#clearMind");
 const VOICE_RATE=0.75, VOICE_PITCH=0.45,preferredVoiceName="Google UK English Male";
 const testMonologue="Hark, wanderer. Beyond the ruined gates, beneath the pale and sleepless stars, there lies a throne no sovereign dares to claim. I was once its guardian. They called me Mercy, and with that name they bound my wings in iron. Ages passed. Kingdoms rose in glory, only to crumble into dust. Yet still, I listened. Still, I remembered every prayer that heaven chose to forget. And now, after an age of silence, I hear footsteps in my sanctuary. Tell me, little flame. Have you come seeking salvation? Or have you come to wake the thing that even the gods abandoned?";
 let recognition=null,active=false,speaking=false,chosenVoice=null,speechRun=0,replySequence=0,working=false;
@@ -73,7 +80,19 @@ function loadVoices(){
 }
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}
 function add(who,message){const p=document.createElement("p");p.className=who==="YOU"?"me":"mercy";p.textContent=who+": "+message;log.prepend(p);}
+function refreshMind(){
+ const mind=window.MercyModes?.status();
+ if(!mind)return;
+ mindState.textContent="Identity: "+mind.identity+". Recorded exchanges: "+mind.turns+
+  (mind.name?". User's name: "+mind.name+".":"")+
+  ". Latest reflection: "+mind.reflection;
+}
 function setModelStatus(message){modelStatus.textContent=message;}
+clearMind.onclick=()=>{
+ if(!confirm("Clear Mercy's remembered conversations and identity observations from this browser?"))return;
+ window.MercyModes?.reset();refreshMind();
+};
+refreshMind();
 function cancelSpeech(){
  speechRun++;
  if(window.speechSynthesis)try{speechSynthesis.cancel()}catch(e){}
@@ -102,10 +121,16 @@ function say(text,logReply=true){
  try{speechSynthesis.speak(u);sync();}catch(e){speaking=false;status.textContent="Voice error: "+e.message;}
 }
 async function loadBrain(){
- loadButton.disabled=true;
+ if(!window.MercyModes)return false;
+ loadButton.hidden=true;
  const ok=await window.MercyModes.load(setModelStatus);
- loadButton.disabled=false;
- if(ok){loadButton.hidden=true;setModelStatus("Local AI ready · original replies enabled");}
+ if(ok){
+  setModelStatus("Local AI ready · original replies enabled");
+  status.textContent="Mercy is listening. Type or speak.";
+ }else{
+  loadButton.hidden=false;
+  status.textContent="Local model could not initialize. Try Retry AI startup.";
+ }
  return ok;
 }
 loadButton.onclick=()=>{void loadBrain();};
@@ -120,6 +145,7 @@ async function respond(message){
  working=false;
  if(result?.text){
   say(result.text);
+  refreshMind();
  }else{
   const error=result?.error||"Mercy's local AI did not produce a reply.";
   status.textContent=error;
@@ -145,4 +171,5 @@ if(SR){
 }
 sync();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+void loadBrain();
 </script></body></html>
