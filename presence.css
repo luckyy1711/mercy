@@ -21,13 +21,15 @@
 .presence-stage[data-state="listening"] .presence-head{animation-duration:5s}
 .presence-stage[data-state="speaking"] .presence-head{animation-duration:3.8s}
 .presence-stage[data-state="asleep"] .presence-head{animation-play-state:paused}
-.presence-eye{transform-box:fill-box;transform-origin:center;animation:presence-blink 7.3s ease-in-out infinite}
-.presence-eye.right{animation-delay:0.06s}
+.presence-eye{transform-box:fill-box;transform-origin:center}
+.presence-stage.is-blinking .presence-eye{animation:presence-blink .26s ease-in-out 1}
+.presence-stage.is-blinking .presence-eye.right{animation-delay:.025s}
 .presence-pupil{transform:translate(var(--gaze-x),var(--gaze-y));transition:transform 180ms ease}
 .presence-stage[data-state="thinking"] .presence-pupil{transform:translate(0px,-5px)}
 .presence-stage[data-state="speaking"] .presence-pupil{transform:translate(var(--gaze-x),var(--gaze-y))}
 .presence-jaw{transform-box:fill-box;transform-origin:50% 0%;transition:transform 180ms ease}
-.presence-stage[data-state="speaking"] .presence-jaw{animation:jaw-talk .33s ease-in-out infinite alternate}
+.presence-stage[data-state="speaking"] .presence-jaw{animation:jaw-talk .38s ease-in-out infinite alternate}
+.presence-stage[data-state="speaking"].word-pulse .presence-jaw{animation:jaw-pulse .2s ease-in-out 1}
 .presence-stage[data-state="listening"] .presence-jaw{transform:translateY(1px)}
 .presence-glow{opacity:.55;animation:eye-glow 5s ease-in-out infinite alternate}
 .presence-stage[data-state="listening"] .presence-glow{opacity:.95}
@@ -49,7 +51,8 @@
  48%{transform:translateY(-5px) rotate(1.4deg)}
 }
 @keyframes halo-drift{from{transform:scale(.98);opacity:.3}to{transform:scale(1.03);opacity:.85}}
-@keyframes presence-blink{0%,43%,47%,100%{transform:scaleY(1)}44%,46%{transform:scaleY(.07)}}
+@keyframes presence-blink{0%,100%{transform:scaleY(1)}45%,55%{transform:scaleY(.06)}}
+@keyframes jaw-pulse{0%,100%{transform:translateY(1px)}55%{transform:translateY(8px)}}
 @keyframes jaw-talk{from{transform:translateY(0px) scaleY(.97)}to{transform:translateY(7px) scaleY(1.06)}}
 @keyframes eye-glow{from{opacity:.48}to{opacity:.9}}
 @media (prefers-reduced-motion:reduce){
