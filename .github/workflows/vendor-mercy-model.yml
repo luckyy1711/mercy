@@ -12,7 +12,7 @@ permissions:
 jobs:
   vendor-model:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,7 +28,7 @@ jobs:
           from pathlib import Path
           from huggingface_hub import snapshot_download
           import hashlib, json, shutil
-          repo = "onnx-community/SmolLM2-135M-Instruct-ONNX"
+          repo = "onnx-community/SmolLM2-360M-Instruct-ONNX"
           prefix = Path("models") / repo
           prefix.mkdir(parents=True, exist_ok=True)
           names = [
@@ -65,10 +65,10 @@ jobs:
                   dest.parent.mkdir(parents=True, exist_ok=True)
                   shutil.copy2(src, dest)
           (prefix / "ATTRIBUTION.txt").write_text(
-              "SmolLM2-135M-Instruct: HuggingFaceTB, Apache License 2.0.\\n"
+              "SmolLM2-360M-Instruct: HuggingFaceTB, Apache License 2.0.\\n"
               "ONNX conversion: onnx-community.\\n"
-              "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct\\n"
-              "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX\\n"
+              "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct\\n"
+              "https://huggingface.co/onnx-community/SmolLM2-360M-Instruct-ONNX\\n"
               "https://www.apache.org/licenses/LICENSE-2.0\\n"
           )
           print("Vendored:", sorted(str(p) for p in prefix.rglob("*") if p.is_file()))
@@ -78,7 +78,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f models/onnx-community/SmolLM2-135M-Instruct-ONNX/
+          git add -f models/onnx-community/SmolLM2-360M-Instruct-ONNX/
           if git diff --cached --quiet; then
             echo "Model files already present"
           else
