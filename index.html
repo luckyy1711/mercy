@@ -22,17 +22,29 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 .voice-panel input{accent-color:#e5b6d2;min-width:170px}
 .voice-panel textarea{width:100%;min-height:70px;padding:12px;background:#211825;border:1px solid #70576a;color:#f5e1ef;border-radius:9px;resize:vertical;font:inherit}
 .voice-panel .mode{color:#e5bad3;text-align:center;font-size:11px;letter-spacing:.18em;border-bottom:1px solid #564254;padding-bottom:12px}
+.voice-panel details{border:1px solid #57455b;border-radius:12px;padding:12px}
+.voice-panel summary{cursor:pointer;color:#eed8e6;font-weight:600}
+.voice-settings{display:grid;gap:9px;margin-top:14px}
 </style>
 </head>
 <body>
 <main>
-<small>THE VOICE PROTOTYPE · V1</small>
+<small>THE VOICE PROTOTYPE · V2</small>
 <h1>MERCY</h1>
 <p>A voice in the dark. Speak, and she will answer.</p>
 <p id="status" role="status">Press Start to activate the microphone.</p>
 <button id="start">Start listening</button><button class="secondary" id="stop" disabled>Stop</button><button class="secondary" id="testVoice">🪽 Hear Mercy’s monologue</button><p id="voiceInfo" style="font-size:12px;color:#bba7b5">Voice: checking browser voices…</p>
 <div class="voice-panel">
-<p class="mode">HAUNTING · MERCY'S SIGNATURE VOICE</p>
+<p class="mode">MERCY · DARK FANTASY VOICE STUDIO</p>
+<label for="voiceStyle">Voice character</label>
+<select id="voiceStyle">
+<option value="haunting">Haunting Mercy — original</option>
+<option value="mohg">Blood Ritual — Mohg-inspired</option>
+<option value="godfrey">Elden Lord — Godfrey-inspired</option>
+</select>
+<p id="styleDescription" style="font-size:12px;color:#bba7b5;margin:0">Haunting: low, intimate and unsettling.</p>
+<p style="font-size:12px;color:#af9fad;margin:0">Inspired voice presets, not original game character recordings.</p>
+<details id="advanced"><summary>Fine-tune voice settings</summary><div class="voice-settings">
 <label for="rate">Speech speed <output id="rateValue">0.75×</output></label><input id="rate" type="range" min="0.6" max="1.3" step="0.05" value="0.75">
 <label for="pitch">Voice pitch <output id="pitchValue">0.45</output></label><input id="pitch" type="range" min="0.3" max="1.5" step="0.05" value="0.45">
 <label for="volume">Loudness <output id="volumeValue">100%</output></label><input id="volume" type="range" min="20" max="100" step="5" value="100">
@@ -43,11 +55,12 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <label for="breath">Breathy atmosphere <output id="breathValue">15%</output></label><input id="breath" type="range" min="0" max="100" step="5" value="15">
 <label for="whisper">Whisper-like delivery <output id="whisperValue">20%</output></label><input id="whisper" type="range" min="0" max="100" step="5" value="20">
 <label for="texture">Grit / vocal texture <output id="textureValue">0%</output></label><input id="texture" type="range" min="0" max="60" step="5" value="0">
+</div></details>
 <button class="secondary" id="laugh" type="button">Hear Mercy laugh</button>
-<button class="secondary" id="preset">Reset haunting voice</button>
+<button class="secondary" id="preset">Reset to Haunting Mercy</button>
 <label for="customPhrase">Test with your own words</label><textarea id="customPhrase" rows="3" maxlength="500" placeholder="Write a line for Mercy to speak…" aria-label="Custom test phrase"></textarea>
 <button class="secondary" id="testCustom">Speak custom phrase</button>
-<p style="font-size:12px;color:#af9fad;text-align:left">Haunting is Mercy’s only personality. Breathy atmosphere adds a soft synthesized exhale. Whisper-like delivery changes pitch, speed and volume—not true whisper synthesis. Grit and reverb process captured tab audio only; enable reverb to hear grit.</p>
+<p style="font-size:12px;color:#af9fad;text-align:left">Select a voice character and play the monologue to compare the same words. Fine-tuning is optional.</p>
 </div><div class="log" id="log" aria-live="polite"></div>
 <footer>Microphone permission required. Browser recognition may send audio to your browser provider. This is a voice-only demo, not full conversational AI.</footer>
 </main>
@@ -60,6 +73,19 @@ const preferredVoiceName="Google UK English Male";
 let speechRun=0;
 const testVoice=document.querySelector("#testVoice"),voiceInfo=document.querySelector("#voiceInfo");
 const pitch=document.querySelector("#pitch"),rate=document.querySelector("#rate"),volume=document.querySelector("#volume");
+const voiceStyle=document.querySelector("#voiceStyle"),styleDescription=document.querySelector("#styleDescription");
+const styleProfiles={
+ haunting:{rate:"0.75",pitch:"0.45",volume:"100",breath:"15",whisper:"20",reverb:"25",texture:"0",description:"Haunting: low, intimate and unsettling."},
+ mohg:{rate:"0.65",pitch:"0.35",volume:"100",breath:"30",whisper:"40",reverb:"45",texture:"15",description:"Blood Ritual: slow, ceremonial menace and a hollow presence."},
+ godfrey:{rate:"0.90",pitch:"0.55",volume:"100",breath:"5",whisper:"0",reverb:"20",texture:"10",description:"Elden Lord: powerful, measured and commanding."}
+};
+function applyStyle(name){
+ const p=styleProfiles[name]||styleProfiles.haunting;
+ voiceStyle.value=styleProfiles[name]?name:"haunting";
+ for(const id of ["rate","pitch","volume","breath","whisper","reverb","texture"])document.getElementById(id).value=p[id];
+ styleDescription.textContent=p.description;
+ updateLabels();saveVoicePrefs();
+}
 const breath=document.querySelector("#breath"),whisper=document.querySelector("#whisper"),texture=document.querySelector("#texture");
 let breathCtx=null,breathCleanup=null;
 function stopBreath(){
@@ -152,7 +178,7 @@ async function toggleReverb(){
 enableReverb.addEventListener("click",toggleReverb);
 updateReverb();
 function saveVoicePrefs(){
- try{localStorage.setItem("mercyHauntingV1",JSON.stringify({rate:rate.value,pitch:pitch.value,volume:volume.value,reverb:reverb.value,breath:breath.value,whisper:whisper.value,texture:texture.value}));}catch(e){}
+ try{localStorage.setItem("mercyHauntingV1",JSON.stringify({rate:rate.value,pitch:pitch.value,volume:volume.value,reverb:reverb.value,breath:breath.value,whisper:whisper.value,texture:texture.value,style:voiceStyle.value}));}catch(e){}
 }
 function updateLabels(){
  document.querySelector("#rateValue").textContent=rate.value+"×";
@@ -164,14 +190,18 @@ function updateLabels(){
 function restoreVoicePrefs(){
  try{
   const v=JSON.parse(localStorage.getItem("mercyHauntingV1")||"null");
-  if(v)for(const key of ["rate","pitch","volume","reverb","breath","whisper","texture"]){
-   if(v[key]!==undefined)document.getElementById(key).value=v[key];
+  if(v){
+   if(v.style&&styleProfiles[v.style])voiceStyle.value=v.style;
+   for(const key of ["rate","pitch","volume","reverb","breath","whisper","texture"]){
+    if(v[key]!==undefined)document.getElementById(key).value=v[key];
+   }
   }
   else{
    const old=JSON.parse(localStorage.getItem("mercyVoiceV4")||"null");
    if(old){if(old.rate!==undefined)rate.value=old.rate;if(old.pitch!==undefined)pitch.value=old.pitch;}
   }
  }catch(e){}
+ styleDescription.textContent=styleProfiles[voiceStyle.value].description;
  updateLabels();
 }
 function cancelSpeech(){
@@ -193,10 +223,8 @@ function loadVoices(){
 for(const id of ["rate","pitch","volume","reverb","breath","whisper","texture"]){
  document.getElementById(id).addEventListener("input",()=>{updateLabels();saveVoicePrefs();});
 }
-document.querySelector("#preset").onclick=()=>{
- rate.value="0.75";pitch.value="0.45";volume.value="100";reverb.value="25";breath.value="15";whisper.value="20";texture.value="0";
- updateLabels();saveVoicePrefs();
-};
+voiceStyle.addEventListener("change",()=>applyStyle(voiceStyle.value));
+document.querySelector("#preset").onclick=()=>applyStyle("haunting");
 document.querySelector("#testCustom").onclick=()=>{
  const words=document.querySelector("#customPhrase").value.trim();
  if(!words){status.textContent="Enter a phrase for Mercy first.";return;}
