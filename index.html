@@ -258,12 +258,40 @@ testVoice.onclick=()=>{
  start.disabled=false;stop.disabled=false;
  say(testMonologue,true);
 };
+function laughSound(){
+ const AC=window.AudioContext||window.webkitAudioContext;
+ if(!AC){say("Ah... How delightfully unfortunate.",true);return;}
+ try{
+  const ctx=breathCtx=breathCtx||new AC();ctx.resume().catch(()=>{});
+  const initial=ctx.currentTime+.03,bursts=[0,.26,.52,.85,1.16,1.48];
+  for(let i=0;i<bursts.length;i++){
+   const at=initial+bursts[i],dur=i<2?.20:.24;
+   const osc=ctx.createOscillator(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+   osc.type="sawtooth";osc.frequency.setValueAtTime(i%2===0?128:118,at);
+   osc.frequency.exponentialRampToValueAtTime(i%2===0?94:86,at+dur);
+   filter.type="bandpass";filter.frequency.value=650+(i%2)*140;filter.Q.value=.8;
+   gain.gain.setValueAtTime(.0001,at);
+   gain.gain.exponentialRampToValueAtTime(.034,at+.045);
+   gain.gain.exponentialRampToValueAtTime(.0001,at+dur);
+   osc.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+   osc.start(at);osc.stop(at+dur);
+   osc.onended=()=>{try{osc.disconnect();filter.disconnect();gain.disconnect()}catch(e){}};
+  }
+  // The sound is synthesized rather than an actual recorded human laugh.
+  const ticket=++speechRun;
+  speaking=true;
+  window.setTimeout(()=>{
+   if(ticket!==speechRun)return;
+   say("Ah. How delightfully unfortunate.",true);
+  },2050);
+  status.textContent="Mercy laughs…";
+ }catch(e){say("Ah... How delightfully unfortunate.",true);}
+}
 document.querySelector("#laugh").onclick=()=>{
  active=false;try{recognition?.abort()}catch(e){}
+ cancelSpeech();
  start.disabled=false;stop.disabled=false;
- // One natural-length speech utterance avoids the long resets between words.
- // Actual actor-quality laughter needs a recorded/model-generated laugh.
- say("Heh... heh heh... ah, ha ha ha... Oh. How delightfully unfortunate.",true);
+ laughSound();
 };
 start.onclick=()=>{cancelSpeech();active=true;sync();tryListen()};
 stop.onclick=()=>{active=false;try{recognition?.abort()}catch(e){}cancelSpeech();sync()};
