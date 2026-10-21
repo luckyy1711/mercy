@@ -3,6 +3,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MERCY — Voice</title>
 <meta name="theme-color" content="#110e16">
+<link rel="stylesheet" href="presence.css">
 <style>
 :root{color-scheme:dark;font-family:system-ui,Segoe UI,sans-serif}
 *{box-sizing:border-box}body{min-height:100vh;display:grid;place-items:center;margin:0;background:radial-gradient(ellipse at 50% 25%,#2c1831 0%,#100e14 55%,#09090b 100%);color:#eee}
@@ -28,10 +29,50 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <body><main>
 <small>VOICE PROTOTYPE</small>
 <h1>MERCY</h1>
+<div class="presence-stage" id="presence" data-state="idle" role="img" aria-label="Mercy's animated gothic skull with glowing, moving eyes">
+<svg class="presence-svg" viewBox="0 0 420 390" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<defs>
+ <linearGradient id="cloak" x2=".85" y2="1"><stop stop-color="#36233e"/><stop offset=".53" stop-color="#130f1c"/><stop offset="1" stop-color="#583455"/></linearGradient>
+ <linearGradient id="bone" x2=".85" y2="1"><stop stop-color="#efe5e8"/><stop offset=".5" stop-color="#c9b6c3"/><stop offset="1" stop-color="#8d7086"/></linearGradient>
+ <radialGradient id="iris"><stop stop-color="#fff5fa"/><stop offset=".35" stop-color="#e2a2dc"/><stop offset="1" stop-color="#843687"/></radialGradient>
+</defs>
+<g class="presence-halo" stroke="#a778ac" fill="none" stroke-width="1.2">
+ <ellipse cx="210" cy="184" rx="125" ry="148" stroke-dasharray="4 10"/>
+ <path d="M48 154 Q105 58 162 42 M258 42 Q315 58 372 154 M65 275 Q105 345 162 346 M258 346 Q315 345 355 275"/>
+</g>
+<path d="M111 227 Q68 205 23 299 Q86 262 127 328 M309 227 Q352 205 397 299 Q334 262 293 328" fill="#1f1727" stroke="#765379" stroke-width="2"/>
+<g class="presence-head">
+ <path d="M90 278 Q67 107 135 60 Q170 26 210 48 Q250 26 285 60 Q353 107 330 278 L354 350 Q298 329 270 378 L150 378 Q122 329 66 350Z" fill="url(#cloak)" stroke="#725477" stroke-width="3"/>
+ <path d="M152 81 L171 34 L191 69 L210 9 L230 69 L249 34 L268 81" fill="#32203a" stroke="#d5a7c4" stroke-width="3" stroke-linejoin="round"/>
+ <path d="M210 12 V59 M170 42 L185 72 M250 42 L235 72" stroke="#edcadc" stroke-opacity=".7" stroke-width="2"/>
+ <path d="M139 145 Q139 102 171 91 Q210 80 249 91 Q281 102 281 145 L295 207 Q289 249 247 283 L227 294 L193 294 L173 283 Q131 249 125 207Z" fill="url(#bone)" stroke="#6b4b63" stroke-width="3"/>
+ <path d="M154 159 Q176 135 197 158 Q176 182 152 175Z M266 159 Q244 135 223 158 Q244 182 268 175Z" fill="#1c1020" stroke="#8c667e" stroke-width="2"/>
+ <g class="presence-eye left"><ellipse class="presence-glow" cx="175" cy="162" rx="13" ry="10" fill="#bd60b8"/><g class="presence-pupil"><circle cx="175" cy="162" r="7" fill="url(#iris)"/><ellipse cx="175" cy="162" rx="2" ry="4" fill="#180d1b"/></g></g>
+ <g class="presence-eye right"><ellipse class="presence-glow" cx="245" cy="162" rx="13" ry="10" fill="#bd60b8"/><g class="presence-pupil"><circle cx="245" cy="162" r="7" fill="url(#iris)"/><ellipse cx="245" cy="162" rx="2" ry="4" fill="#180d1b"/></g></g>
+ <path d="M208 169 L193 220 Q210 232 227 220Z" fill="#362132" stroke="#876079" stroke-width="2"/>
+ <path d="M164 245 Q210 263 256 245 L246 267 Q210 276 174 267Z" fill="#402b3b"/>
+ <path d="M188 252 V265 M202 255 V268 M218 255 V268 M232 252 V265" stroke="#f2e0ec" stroke-width="3"/>
+ <g class="presence-jaw">
+  <path d="M164 277 Q210 299 256 277 L243 313 Q210 337 177 313Z" fill="#bda4b7" stroke="#65475e" stroke-width="3"/>
+  <path d="M177 287 Q210 302 243 287" stroke="#422a3a" stroke-width="5" fill="none"/>
+  <path d="M188 290 V300 M202 294 V306 M218 294 V306 M232 290 V300" stroke="#f0dce8" stroke-width="3"/>
+ </g>
+ <path d="M127 211 Q110 270 142 317 M293 211 Q310 270 278 317" stroke="#dba8c6" stroke-opacity=".24" stroke-width="4" fill="none"/>
+</g>
+</svg>
+<span class="presence-caption" id="presenceCaption">Watching</span>
+</div>
 <p id="status" role="status">Mercy is waking…</p>
 <button id="start">Start listening</button>
 <button class="secondary" id="stop">Stop voice</button>
 <button class="secondary" id="testVoice">Hear Mercy's monologue</button>
+<section class="ai-panel" aria-label="Autonomous speech settings">
+<div class="autonomy-controls">
+<button class="secondary" type="button" id="autonomyToggle" aria-pressed="false">Enable autonomous speech</button>
+<span id="autonomyState" role="status">Off · Mercy responds when spoken to.</span>
+</div>
+<p>Enabled mode lets Mercy speak occasionally after quiet periods while this tab is visible. Stop turns it off. It does not require microphone access.</p>
+</section>
 <section class="ai-panel">
 <p id="modelStatus">AI initializing automatically…</p>
 <button class="secondary" id="loadModel" type="button" hidden>Retry AI startup</button>
@@ -51,6 +92,7 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <footer>Speech uses the original Haunting browser voice. The model generates responses locally; its conversation history stays in this browser until cleared.</footer>
 </main>
 <script src="mercy-modes.js"></script>
+<script src="presence.js"></script>
 <script>
 "use strict";
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
