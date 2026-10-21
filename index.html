@@ -199,6 +199,7 @@ function say(text,logReply=true,spontaneous=false){
  if(chosenVoice)u.voice=chosenVoice;
  u.lang=chosenVoice?.lang||"en-GB";u.rate=VOICE_RATE;u.pitch=VOICE_PITCH;u.volume=1;
  u.onstart=()=>{if(run===speechRun){status.textContent="Mercy is speaking…";setPresence();}};
+ u.onboundary=()=>{if(run===speechRun)window.MercyPresence?.pulse();};
  u.onend=()=>{if(run!==speechRun)return;speaking=false;spontaneousSpeaking=false;sync();if(active)listen();};
  u.onerror=e=>{if(run!==speechRun||e.error==="canceled"||e.error==="interrupted")return;speaking=false;spontaneousSpeaking=false;lastIssue="Voice error: "+e.error;sync();};
  try{speechSynthesis.speak(u);sync();}catch(e){speaking=false;spontaneousSpeaking=false;lastIssue="Voice error: "+e.message;sync();}
