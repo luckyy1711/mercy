@@ -1,9 +1,7 @@
-# MERCY v3 — Perception adapter
+# MERCY v3 — Parked perception experiment
 
-**Implemented:** browser camera permission workflow, local low-resolution image sampling (64×48), rough brightness and scene-change metadata, visible preview, automatic shutdown when the tab is hidden, and camera track cleanup. No frames or audio are uploaded. Raw frames are not stored. Saving **metadata** to cognition requires an additional checkbox.
+**Not released, not loaded by the live website.** This is an inactive code experiment kept for possible later work, not the current MERCY version.
 
-**Not implemented:** identifying objects, reading text in images, recognizing faces or people, a computer-vision neural network, continuous iOS background perception, or full multimodal reasoning. The prototype does not claim otherwise.
+[perception.js](perception.js) contains a consent-gated browser camera adapter that can calculate low-resolution lighting and motion metadata in an isolated host. It is not an object recognizer, face recognizer, environmental-understanding model, or always-on iPhone camera. The live v2 page does **not** import this file or request camera access.
 
-The camera begins only after the user clicks **Enable camera** and accepts browser permission. It never requests microphone permission (the original browser voice controls are separate). Run on HTTPS or localhost. Camera support varies with device/browser and user permissions.
-
-Code: [perception.js](perception.js). Tests validate light and motion classification, explicit permission, hidden-tab cleanup and cancellation races. Later, a separately evaluated on-device vision model can publish carefully bounded perception events through `onObservation`.
+When the user decides to start v3, the camera hardware, permissions, user interface, privacy settings, and actual learning objectives should be re-evaluated before integration. No future version will be automatically promoted.

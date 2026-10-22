@@ -2,13 +2,12 @@
 const test=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
 const source=fs.readFileSync(path.join(__dirname,"..","mercy-modes.js"),"utf8");
-const C=require("../v2/cognition/engine.js"),R=require("../v5/research.js");
+const C=require("../v2/cognition/engine.js");
 
 function setup() {
  const saved=new Map(),calls=[];
  const storage={getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v)};
  const cognition=C.create({storage});
- const supervisor=R.createSupervisor({cognition});
  const replies=[];
  const mocked=async (messages)=>{
   calls.push(JSON.parse(JSON.stringify(messages)));
@@ -20,11 +19,11 @@ function setup() {
   "let memory=read(),generator=window.__mockGenerator,loading=null,"
  );
  assert.notEqual(altered,source,"The real generator must be replaced in this test");
- const window={__mockGenerator:mocked,MercyBrain:{cognition,supervisor}};
+ const window={__mockGenerator:mocked,MercyBrain:{cognition}};
  const ctx={window,document:{baseURI:"https://example.org/mercy/",hidden:false},
   navigator:{},localStorage:storage,URL,MessageChannel,setTimeout,clearTimeout};
  vm.runInNewContext(altered,ctx,{filename:"mercy-modes.js"});
- return {brain:window.MercyModes,cognition,supervisor,replies,calls,saved};
+ return {brain:window.MercyModes,cognition,replies,calls,saved};
 }
 
 test("normal conversation can teach, correct and recall without calling an LLM",async()=>{
@@ -57,9 +56,8 @@ test("unfamiliar chat is handled by model and receives user-provided fact contex
 });
 
 test("autonomous question follows grounded curiosity and records once",async()=>{
- const {brain,cognition,supervisor,replies,calls}=setup();
+ const {brain,cognition,replies,calls}=setup();
  cognition.learn({subject:"skull material",value:"resin"});
- supervisor.setEnabled(true);
  replies.push("How is the skull coming along?");
  const response=await brain.initiate();
  assert.equal(response.spontaneous,true);

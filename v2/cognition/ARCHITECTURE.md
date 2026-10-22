@@ -7,7 +7,7 @@ User message ───► explicit fact parser ─────► belief revisio
                                                     ├──► evidence-linked part_of inference
                                                     └──► bounded curiosity candidate
                                                                │
-                                       opt-in v5 supervisor ───┘
+                                       v1 opt-in autonomy toggle ───┘
                                                                │
                                     v1 on-device language model expresses question
 ```
@@ -27,6 +27,6 @@ This system is **not** an AGI or a conscious entity. The current text grammar is
 
 ## Privacy and robustness
 
-Browser localStorage is not encrypted. It can be unavailable or cleared by the browser. Cognitive histories are size-bounded and recover from invalid saved JSON without executing it. JSON export requires a button click; imported arbitrary code is not supported. Sensor observations require separate camera permission and a second opt-in to persist metadata.
+Browser localStorage is not encrypted. It can be unavailable or cleared by the browser. Cognitive histories are size-bounded and recover from invalid saved JSON without executing it. JSON export requires a button click; imported arbitrary code is not supported. Camera sensing is not part of the deployed v2 website.
 
-The production website uses v1-style text generation and voice; the cognitive modules are opt-in additions. Tests: `node --test tests/*.test.cjs`.
+The production website uses v1-style local text generation and voice plus the v2 learning module; only autonomous speech is opt-in. Tests: `node --test tests/*.test.cjs`.

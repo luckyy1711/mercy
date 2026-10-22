@@ -1,16 +1,15 @@
 # MERCY
 
-## Project versions
+## Release policy — one version at a time
 
-- **[v1 — Original release archive](v1/README.md):** a preserved snapshot of the website, local LLM, voice, memory, animated face and first autonomous speech. The [archive/v1.0 branch](https://github.com/luckyy1711/mercy/tree/archive/v1.0) retains the complete old files and model weights.
-- **[v2 — Cognition](v2/README.md):** local evidence-backed facts, corrections, narrow inference, learning from explicit teaching and curiosity proposals.
-- **[v3 — Perception](v3/README.md):** permission-gated camera with private scene-change and lighting metadata, not object recognition.
-- **[v4 — Embodiment](v4/README.md):** a physically bounded **virtual-only** motor simulator and a hardware interface abstraction, not a connected skull.
-- **[v5 — Research and supervision](v5/README.md):** bounded curiosity planning, cognition diagnostics and experiment proposals—not autonomous neural retraining.
+- **[v1 — Frozen archive](v1/README.md):** the original browser voice, 360M local model, animation and basic memory. The complete frozen snapshot including model files is on [archive/v1.0](https://github.com/luckyy1711/mercy/tree/archive/v1.0).
+- **[v2 — Current live version](v2/README.md):** explicitly taught facts, durable memory, corrections, basic inference and curiosity alongside the existing voice and conversation.
+- **[v3 — Parked experiment](v3/README.md):** early camera metadata code is retained in the repository for a possible future version. **It is not imported by the website or activated.**
+- **[v5 — Parked experiment](v5/README.md):** early research and supervisor utilities are retained separately and **are not part of the live app**.
 
-**Status:** v2–v5 are early, testable software prototypes, not fully developed versions of the advanced AI capabilities envisioned in the roadmap. Their small, lightweight modules are wired into the current website's **Cognitive Lab** without replacing Mercy's local language model, user-controlled autonomy or original browser voice. No verified sentience is claimed.
+**Versioning rule:** the live website receives *only* the version we are currently developing. Later experiments are not added to the UI or bundled into the site's service-worker cache until specifically chosen and tested. The premature v4 motor/robot controller was **removed from the current codebase**. The future mechanical design is undecided and will be based on the actual hardware you choose, not on an assumed premade configuration.
 
-**Try it:** Open [MERCY](https://luckyy1711.github.io/mercy/), expand **Mercy Cognitive Lab · v2–v5**, and teach a fact. Then ask for it in chat or correct it. Test the optional private camera and virtual motor simulator independently.
+**Current website:** [MERCY v2](https://luckyy1711.github.io/mercy/) — expand **Mercy v2 · Learned memory** to teach or correct a fact, run memory checks, or export memory. There are no camera or robotics controls in the live version.
 
 The live website remains at **[GitHub Pages](https://luckyy1711.github.io/mercy/)** and is still served from the **repository root**. Version folders archive or stage major milestones; don't rename or move the production root just to release a new version. Large model weight files are kept only once in root `models/` to avoid duplicating hundreds of megabytes in the Pages artifact. Visitor memories are kept locally in each browser and are not part of GitHub backups.
 
@@ -43,6 +42,8 @@ A 360M-parameter model is still small: it can hallucinate, repeat itself, misund
 index.html (UI + Web Speech)
     → presence.css + presence.js (animated expression + gaze)
     → autonomy.js (optional idle / visible-tab scheduling)
+    → v2/cognition/engine.js (explicit facts and evidence-backed memory)
+    → mercy-cognition.js + cognition-lab.js (v2 bridge + memory UI)
     → mercy-modes.js (local AI inference + conversation memory)
     → Transformers.js and ONNX Runtime Web
     → hosted SmolLM2 model chunks (GitHub Pages)
@@ -87,8 +88,8 @@ node --check presence.js
 node --test tests/*.test.cjs
 ```
 
-The repository's CI workflow runs these tests and validates that the model manifest agrees with its committed chunks. Additional v2–v5 tests check correction persistence, limited inference, privacy, bounded curiosity, virtual actuator safeguards and the browser integration. An optional `.github/workflows/model-smoke.yml` workflow reconstructs the hosted 360M model to test actual inference in GitHub Actions. A real browser smoke test is still required for speech synthesis, service worker interception and local ONNX inference.
+The repository's CI workflow checks syntax, factual memory/correction persistence, v2 integration, optional future experiments in isolation, and legacy Python voice logic. The ONNX model weights have a separate smoke-test workflow. An optional `.github/workflows/model-smoke.yml` workflow reconstructs the hosted 360M model to test actual inference in GitHub Actions. A real browser smoke test is still required for speech synthesis, service worker interception and local ONNX inference.
 
 ## Future robotics work
 
-Camera, animatronic movement, eye controls and ESP32 integration are not implemented. A laptop would handle the compute-intensive AI and communicate with microcontrollers for movement. Tell people when a microphone is listening.
+Mercy's physical form, actuator layout, camera placement and motor controller have **not yet been decided**. No current production code presumes a specific servo, jaw hinge, wiring map, or prebuilt skull. We will design hardware integration only after the user confirms the actual parts and mechanical design. Keep microphone and camera use explicit and consent-based.

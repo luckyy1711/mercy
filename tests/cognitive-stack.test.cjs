@@ -4,7 +4,6 @@ const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
 const read=p=>fs.readFileSync(path.join(__dirname,"..",p),"utf8");
 const C=require("../v2/cognition/engine.js");
 const P=require("../v3/perception.js");
-const E=require("../v4/embodiment.js");
 const R=require("../v5/research.js");
 const storage=()=>{
  const m=new Map();
@@ -130,59 +129,6 @@ test("v3 permission completed after cancellation cannot reactivate camera",async
  assert.equal(stops,1);
 });
 
-test("v4 motor simulator rejects unarmed, oversized, fast, and dangerous motion",async()=>{
- let now=200;
- const robot=E.create({now:()=>now});
- assert.equal(robot.state().mode,"simulator");
- assert.equal((await robot.command("jaw",7)).ok,false);
- assert.equal(robot.arm(),true);
- assert.equal((await robot.command("jaw",50)).ok,false);
- assert.equal((await robot.command("jaw",20)).ok,false);
- assert.equal((await robot.command("jaw",7)).ok,true);
- assert.equal(robot.state().position.jaw,7);
- assert.equal((await robot.command("jaw",14)).reason,"rate limited");
- now+=200;
- assert.equal((await robot.command("jaw",14)).ok,true);
- robot.emergencyStop();
- now+=200;
- assert.equal((await robot.command("jaw",7)).ok,false);
- assert.equal(robot.resetEmergency(),true);
- assert.equal(robot.state().armed,false);
-});
-
-test("v4 stale hardware acknowledgments cannot change simulator state",async()=>{
- let finish;
- const commands=[];
- const robot=E.create({transport:{send:packet=>{
-  commands.push(packet.type);
-  return packet.type==="move"?new Promise(r=>{finish=r;}):Promise.resolve({ok:true});
- }},hardwareEnabled:true});
- robot.arm();
- const moving=robot.command("jaw",5);
- robot.disarm();
- finish({ok:true});
- assert.equal((await moving).ok,false);
- assert.equal(robot.state().position.jaw,0);
- assert.deepEqual(commands,["move","stop"]);
-});
-
-test("v4 unresponsive transport times out and emergency-stops",async()=>{
- const commands=[];
- const robot=E.create({
-  transport:{send:packet=>{
-   commands.push(packet.type);
-   if(packet.type==="move")return new Promise(()=>{});
-   return Promise.resolve({ok:true});
-  }},
-  hardwareEnabled:true,ackTimeoutMs:200
- });
- assert.equal(robot.arm(),true);
- const result=await robot.command("jaw",5);
- assert.equal(result.ok,false);
- assert.equal(robot.state().emergency,true);
- assert.deepEqual(commands,["move","estop"]);
-});
-
 test("v5 supervisor uses opt-in and one-shot curiosity",()=>{
  let now=100000;
  const brain=C.create({storage:storage()});
@@ -224,13 +170,22 @@ test("v5 experiments cannot silently modify software; full diagnostic succeeds",
 
 test("production scripts load and the original voice remains intact",()=>{
  const html=read("index.html");
- for(const file of ["v2/cognition/engine.js","v3/perception.js",
-  "v4/embodiment.js","v5/research.js","mercy-cognition.js","cognition-lab.js"]){
-  assert.ok(html.includes(file),"Page missing "+file);
+ for(const file of ["v2/cognition/engine.js","mercy-cognition.js","cognition-lab.js"]){
+  assert.ok(html.includes(file),"Current version missing "+file);
   assert.doesNotThrow(()=>new vm.Script(read(file),{filename:file}));
  }
+ for(const parked of ["v3/perception.js","v5/research.js"]){
+  assert.ok(!html.includes(parked),"Inactive experiment must not load: "+parked);
+  assert.doesNotThrow(()=>new vm.Script(read(parked),{filename:parked}));
+ }
+ const sw=read("sw.js");
+ assert.ok(!html.includes("v4/"),"Removed v4 must not appear on website");
+ assert.ok(!fs.existsSync(path.join(__dirname,"..","v4")),"Removed v4 folder must be absent");
+ assert.ok(!sw.includes("v3/perception.js"),"v3 must not be precached");
+ assert.ok(!sw.includes("v5/research.js"),"v5 must not be precached");
+ assert.ok(!sw.includes("v4/"),"v4 must not be precached");
  assert.match(html,/VOICE_RATE=0\.75, VOICE_PITCH=0\.45/);
- assert.match(read("sw.js"),/mercy-shell-v9/);
+ assert.match(sw,/mercy-shell-v10/);
  assert.match(read("mercy-modes.js"),/event\.data\?\.version===8/);
  assert.match(read("mercy-modes.js"),/cognitive\?\.processText\(user\)/);
 });

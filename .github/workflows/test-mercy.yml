@@ -8,7 +8,6 @@ on:
       - "cognition-lab.js"
       - "v2/**"
       - "v3/**"
-      - "v4/**"
       - "v5/**"
       - "autonomy.js"
       - "presence.js"
@@ -42,7 +41,6 @@ jobs:
           node --check cognition-lab.js
           node --check v2/cognition/engine.js
           node --check v3/perception.js
-          node --check v4/embodiment.js
           node --check v5/research.js
           node --check sw.js
           node --check autonomy.js

@@ -65,7 +65,7 @@ function remember(user,reply){
  save();
 }
 function status(){return {ready:!!generator,loading:!!loading,state,source,identity:memory.identity,turns:memory.turns,initiativeCount:memory.initiativeCount,name:memory.name,reflection:memory.lastReflection,cognitiveFacts:window.MercyBrain?.cognition.stats().knownFacts||0};}
-function reset(){memoryGeneration++;memory=initial();save();window.MercyBrain?.cognition.clear();window.MercyBrain?.experiments?.clear?.();}
+function reset(){memoryGeneration++;memory=initial();save();window.MercyBrain?.cognition.clear();}
 function cancelPending(){memoryGeneration++;}
 function clean(value){
  let result=String(value||"").trim();
@@ -271,12 +271,11 @@ async function generateInitiative(report){
  const persona="You are MERCY, a gothic guardian AI character with quiet, observant, lightly sarcastic personality. You have been sitting with the visitor in a pause. Speak first with ONE short, original sentence: an interesting observation or a gentle question connected to your recent conversation if possible. Do not announce that you are autonomous. No routine greetings, stock phrases, fake memories, markdown or stage directions. Avoid repeating the last thing you said. This is a fictional AI character, not a conscious being.";
  const context=memory.name?"Visitor name, if naturally useful: "+memory.name+". ":"";
  const avoid=memory.lastInitiative?"Your previous unsolicited remark was: "+memory.lastInitiative+". Do not repeat it. ":"";
- // A separate cognitive planner chooses whether a specific information gap
- // warrants a question. The LLM only turns that intention into language.
- const supervisor=window.MercyBrain?.supervisor;
- const choice=supervisor?.tick({visible:typeof document==="undefined"||!document.hidden,
-  userBusy:false,allowQuestions:true});
- const plan=choice?.action==="ask"?choice.plan:null;
+ // v2's curiosity engine proposes a question about a known project.
+ // The existing opt-in autonomy scheduler controls when initiation can run.
+ const cognition=window.MercyBrain?.cognition;
+ const choice=cognition?.chooseQuestion();
+ const plan=choice?.action==="ask"?choice:null;
  try{
   const messages=[
    {role:"system",content:persona+" "+context+avoid},
@@ -296,7 +295,7 @@ async function generateInitiative(report){
   if(!reply)return {error:"The local AI did not produce a spontaneous thought."};
   if(plan&&!reply.includes("?"))
    return {error:"The AI did not generate an appropriate question."};
-  if(plan)supervisor.completed(plan);
+  if(plan)cognition.markAsked(plan);
   memory.conversation.push({role:"assistant",content:reply});
   memory.conversation=memory.conversation.slice(-12);
   memory.cleanDialogue.push({role:"assistant",content:reply.slice(0,380)});
