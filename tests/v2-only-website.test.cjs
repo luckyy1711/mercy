@@ -45,5 +45,11 @@ test("website only loads v2, never preloads staged or deleted code", () => {
   }
   assert.ok(!html.includes("v2–v5"));
   assert.ok(html.includes("Mercy v2 · Learned memory"));
+  const config = read("_config.yml");
+  for (const parked of ["v1", "v3", "v5"]) {
+    assert.ok(config.includes("  - " + parked + "\n"),
+      parked + " folder must stay off the published Pages site");
+  }
+  assert.ok(!config.includes("  - v2\n"), "Current v2 must be published");
   assert.ok(!fs.existsSync(path.join(__dirname, "..", "v4")));
 });

@@ -1,0 +1,8 @@
+# Publish the current version only. Preserve archived and experimental
+# source on GitHub, but never copy it into the GitHub Pages site.
+exclude:
+  - v1
+  - v3
+  - v5
+  - tests
+  - .github
