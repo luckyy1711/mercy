@@ -38,7 +38,7 @@ function read(){
   };
  }catch(e){return initial();}
 }
-let memory=read(),generator=null,loading=null,state="Preparing AI...",source="pending";
+let memory=read(),generator=null,loading=null,state="Preparing AI...",source="pending",stage="idle",lastProgress="No model-loader events yet";
 let generationQueue=Promise.resolve(),memoryGeneration=0;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(memory));}catch(e){}}
 function noteUser(user){
@@ -64,7 +64,7 @@ function remember(user,reply){
  memory.lastReflection="I replied to: "+String(user).slice(0,115)+". My response was: "+String(reply).slice(0,115);
  save();
 }
-function status(){return {ready:!!generator,loading:!!loading,state,source,identity:memory.identity,turns:memory.turns,initiativeCount:memory.initiativeCount,name:memory.name,reflection:memory.lastReflection,cognitiveFacts:window.MercyBrain?.cognition.stats().knownFacts||0};}
+function status(){return {ready:!!generator,loading:!!loading,state,source,stage,lastProgress,identity:memory.identity,turns:memory.turns,initiativeCount:memory.initiativeCount,name:memory.name,reflection:memory.lastReflection,cognitiveFacts:window.MercyBrain?.cognition.stats().knownFacts||0};}
 function reset(){memoryGeneration++;memory=initial();save();window.MercyBrain?.cognition.clear();}
 function cancelPending(){memoryGeneration++;}
 function clean(value){
@@ -104,12 +104,26 @@ async function load(report){
  if(loading)return loading;
  loading=(async()=>{
   try{
+   stage="runtime module import";
    state="Starting the local AI runtime…";report?.(state);
-   const {pipeline,env}=await import(SCRIPT);
+   let runtime;
+   try{runtime=await import(SCRIPT);}
+   catch(err){throw Error("Runtime module import failed: "+String(err?.message||err));}
+   const {pipeline,env}=runtime;
    env.useBrowserCache=true;
-   // GitHub Pages assets take priority. Until the action uploads them,
-   // use the identical upstream Apache-2.0 model, without a manual button.
-   const modelManifest=await fetch(new URL("manifest.json",MODEL_DIR).href,{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null);
+
+   stage="model manifest";
+   let modelManifest=null;
+   try{
+    const response=await fetch(new URL("manifest.json",MODEL_DIR).href,{cache:"no-store"});
+    if(!response.ok)throw Error("HTTP "+response.status);
+    modelManifest=await response.json();
+    lastProgress="Manifest loaded; "+(Array.isArray(modelManifest.parts)?modelManifest.parts.length:0)+" model parts listed";
+   }catch(err){
+    lastProgress="Manifest unavailable: "+String(err?.message||err).slice(0,110);
+   }
+
+   stage="service worker";
    const controlled=modelManifest?.model===MODEL&&Array.isArray(modelManifest.parts)&&await waitForWorker();
    if(controlled){
     env.allowLocalModels=true;
@@ -117,26 +131,38 @@ async function load(report){
     env.localModelPath=BASE_DIR.href;
     source="GitHub Pages";
    }else{
-    // If a previous service worker is still activating, use the same
-    // open-source weights upstream so the conversation never relies on scripts.
     env.allowRemoteModels=true;
     env.allowLocalModels=false;
     source="public upstream model host";
    }
+
+   stage="model and ONNX/WASM initialization";
    state="Loading Mercy's AI from "+source+"…";report?.(state);
+   lastProgress="Waiting for Transformers.js model loader";
    generator=await pipeline("text-generation",MODEL,{
     dtype:"int8",device:"wasm",
     progress_callback:event=>{
-     if(event?.status==="progress"&&Number.isFinite(event.progress)){
+     if(!event)return;
+     const details=[event.status,event.file,event.name,
+      Number.isFinite(event.progress)?Math.round(event.progress)+"%":null,
+      Number.isFinite(event.loaded)&&Number.isFinite(event.total)?event.loaded+"/"+event.total:null
+     ].filter(Boolean).join(" · ");
+     if(details)lastProgress=details.slice(0,180);
+     if(event.status==="progress"&&Number.isFinite(event.progress)){
       state="Loading AI files: "+Math.round(event.progress)+"%";report?.(state);
+     }else if(event.status){
+      state="AI loader: "+String(event.status).slice(0,90);report?.(state);
      }
     }
    });
+   stage="ready";
    state="AI ready · generating locally · "+source;report?.(state);
    return true;
   }catch(err){
    generator=null;
-   state="AI could not start: "+String(err?.message||err).slice(0,150);report?.(state);
+   const detail=String(err?.message||err).slice(0,180);
+   state="AI could not start ["+stage+"]: "+detail+" · Last loader event: "+lastProgress;
+   report?.(state);
    return false;
   }finally{loading=null;}
  })();
