@@ -80,9 +80,9 @@ footer{font-size:12px;color:#9b8e9c;margin-top:18px}
 <p>Enabled mode lets Mercy speak occasionally after quiet periods while this tab is visible. Stop turns it off. It does not require microphone access.</p>
 </section>
 <section class="ai-panel">
-<p id="modelStatus">AI initializing automatically…</p>
+<p id="modelStatus">AI is idle · it will load only when you send your first message.</p>
 <button class="secondary" id="loadModel" type="button" hidden>Retry AI startup</button>
-<p>Mercy's small language model starts automatically. The files transfer on the first visit and are cached for offline use. The model creates replies on your device, without a paid API.</p>
+<p>To keep Safari stable, Mercy waits before loading the language model. The first reply may take a while while the model downloads and starts.</p>
 </section>
 <form id="chatForm" class="chat-form">
 <input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Talk to Mercy…" aria-label="Message Mercy" required>
@@ -350,6 +350,7 @@ if(SR){
 }
 sync();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
-void loadBrain();
+// Defer the 360M model and WASM allocation until the first chat message.
+// Mobile Safari can terminate a tab when that memory-heavy work starts on page load.
 </script>
 <script src="cognition-lab.js"></script></body></html>
